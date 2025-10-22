@@ -1,0 +1,96 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Todo {
+  id    Int    @id @default(autoincrement())
+  title String
+}
+model User {
+  id           Int             @id @default(autoincrement())
+  nombre       String
+  apellido     String
+  email        String          @unique
+  password     String
+  viajes       MiembroViaje[]
+  tareas       Tarea[]         @relation("TareasUsuario")
+  gastos       Gasto[]         @relation("GastosUsuario")
+  mensajes     ChatMensaje[]
+  creadoAt     DateTime        @default(now())
+}
+
+model Viaje {
+  id            Int             @id @default(autoincrement())
+  nombre        String
+  descripcion   String?
+  fechaInicio   DateTime?
+  fechaFin      DateTime?
+  miembros      MiembroViaje[]
+  tareas        Tarea[]
+  gastos        Gasto[]
+  mensajes      ChatMensaje[]
+  itinerario    ItinerarioEvento[]
+  creadoEn      DateTime        @default(now())
+}
+
+model MiembroViaje {
+  id         Int      @id @default(autoincrement())
+  usuarioId  Int
+  viajeId    Int
+  rol        String   @default("miembro") // admin, miembro, invitado
+  usuario    User  @relation(fields: [usuarioId], references: [id])
+  viaje      Viaje    @relation(fields: [viajeId], references: [id])
+}
+
+model Tarea {
+  id           Int       @id @default(autoincrement())
+  titulo       String
+  descripcion  String?
+  estado       String    @default("pendiente") // pendiente, completada
+  responsableId Int?
+  viajeId      Int
+  responsable  User?  @relation("TareasUsuario", fields: [responsableId], references: [id])
+  viaje        Viaje     @relation(fields: [viajeId], references: [id])
+  creadoEn     DateTime  @default(now())
+}
+
+model Gasto {
+  id           Int       @id @default(autoincrement())
+  monto        Float
+  categoria    String?
+  descripcion  String?
+  pagadoPorId  Int
+  viajeId      Int
+  pagadoPor    User   @relation("GastosUsuario", fields: [pagadoPorId], references: [id])
+  viaje        Viaje     @relation(fields: [viajeId], references: [id])
+  creadoEn     DateTime  @default(now())
+}
+
+model ChatMensaje {
+  id        Int      @id @default(autoincrement())
+  contenido String
+  usuarioId Int
+  viajeId   Int
+  usuario   User  @relation(fields: [usuarioId], references: [id])
+  viaje     Viaje    @relation(fields: [viajeId], references: [id])
+  enviadoEn DateTime @default(now())
+}
+
+model ItinerarioEvento {
+  id          Int      @id @default(autoincrement())
+  titulo      String
+  descripcion String?
+  fechaHora   DateTime
+  viajeId     Int
+  viaje       Viaje    @relation(fields: [viajeId], references: [id])
+}

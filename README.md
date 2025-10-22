@@ -1,50 +1,129 @@
-# Welcome to your Expo app 👋
+TrekTribe Backend
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Backend de la aplicación TrekTribe utilizando Express, TypeScript, Prisma y SQLite.
 
-## Get started
+------------------------------------------------------------
+Estructura del proyecto
 
-1. Install dependencies
+TrekTribe-Backend/
+├─ package.json
+├─ tsconfig.json
+├─ prisma/
+│   ├─ schema.prisma
+│   └─ dev.db
+├─ src/
+│   ├─ server.ts
+│   └─ routes/
+│       ├─ todos.ts
+│       └─ products.ts
 
-   ```bash
-   npm install
-   ```
+------------------------------------------------------------
+Tecnologías
 
-2. Start the app
+- Node.js + TypeScript
+- Express.js
+- Prisma ORM
+- SQLite
+- ts-node-dev para desarrollo con recarga automática
 
-   ```bash
-   npx expo start
-   ```
+------------------------------------------------------------
+Requisitos
 
-In the output, you'll find options to open the app in a
+- Node.js >= 18
+- npm >= 9
+- Terminal / MacOS
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+------------------------------------------------------------
+Instalación
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+1. Clonar el repositorio:
 
-## Get a fresh project
+git clone https://github.com/tu-usuario/TrekTribe-Backend.git
+cd TrekTribe-Backend
 
-When you're ready, run:
+2. Instalar dependencias:
 
-```bash
-npm run reset-project
-```
+npm install
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+3. Configurar SQLite en Prisma:
+Ya viene configurado en prisma/schema.prisma:
 
-## Learn more
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
 
-To learn more about developing your project with Expo, look at the following resources:
+4. Crear migraciones y base de datos:
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+npx prisma migrate dev --name init
 
-## Join the community
+> Esto crea prisma/dev.db y genera las tablas (Todo y otras futuras).
 
-Join our community of developers creating universal apps.
+5. Generar Prisma Client:
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+npx prisma generate
+
+------------------------------------------------------------
+Levantar el servidor
+
+Modo desarrollo (con recarga automática):
+
+npm run dev
+
+Modo producción:
+
+npm run build
+npm run start
+
+Servidor disponible en:
+
+http://localhost:3000
+
+------------------------------------------------------------
+Endpoints disponibles
+
+Todos
+
+| Método | Ruta   | Descripción            |
+|--------|--------|-----------------------|
+| GET    | /todos | Listar todos los todos|
+| POST   | /todos | Crear un nuevo todo   |
+
+Ejemplo POST:
+
+POST /todos
+Content-Type: application/json
+
+{
+  "title": "Comprar comida"
+}
+
+Products
+
+| Método | Ruta       | Descripción                 |
+|--------|-----------|-----------------------------|
+| GET    | /products | Listar todos los productos  |
+| POST   | /products | Crear un nuevo producto     |
+
+------------------------------------------------------------
+Scripts disponibles
+
+"scripts": {
+  "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+  "build": "tsc",
+  "start": "node dist/server.js",
+  "prisma:generate": "prisma generate",
+  "prisma:migrate": "prisma migrate dev"
+}
+
+- npm run dev → Levanta el servidor en modo desarrollo
+- npm run build → Compila TypeScript a JavaScript
+- npm run start → Levanta el servidor en modo producción
+- npm run prisma:generate → Genera Prisma Client
+- npm run prisma:migrate → Ejecuta migraciones de base de datos
+
+------------------------------------------------------------
+Notas importantes
+
+- Si cambiás el schema.prisma o el proveedor de la base de datos, borrá la carpeta prisma/migrations y generá nuevamente la migración para evitar errores.
+- La base de datos usada es SQLite (dev.db) y se encuentra en la carpeta prisma/.
