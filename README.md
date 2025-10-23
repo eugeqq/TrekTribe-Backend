@@ -15,7 +15,8 @@ TrekTribe-Backend/
 │   ├─ server.ts
 │   └─ routes/
 │       ├─ todos.ts
-│       └─ products.ts
+│       ├─ login.ts
+|       └─ register.ts
 
 ------------------------------------------------------------
 Tecnologías
@@ -45,13 +46,9 @@ cd TrekTribe-Backend
 
 npm install
 
-3. Configurar SQLite en Prisma:
-Ya viene configurado en prisma/schema.prisma:
-
-datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
-}
+3. Configurar variables de entorno:
+Crear un archivo .env en la raíz del proyecto con:
+DATABASE_URL="file:./dev.db"
 
 4. Crear migraciones y base de datos:
 
@@ -70,40 +67,11 @@ Modo desarrollo (con recarga automática):
 
 npm run dev
 
-Modo producción:
-
-npm run build
-npm run start
 
 Servidor disponible en:
 
 http://localhost:3000
 
-------------------------------------------------------------
-Endpoints disponibles
-
-Todos
-
-| Método | Ruta   | Descripción            |
-|--------|--------|-----------------------|
-| GET    | /todos | Listar todos los todos|
-| POST   | /todos | Crear un nuevo todo   |
-
-Ejemplo POST:
-
-POST /todos
-Content-Type: application/json
-
-{
-  "title": "Comprar comida"
-}
-
-Products
-
-| Método | Ruta       | Descripción                 |
-|--------|-----------|-----------------------------|
-| GET    | /products | Listar todos los productos  |
-| POST   | /products | Crear un nuevo producto     |
 
 ------------------------------------------------------------
 Scripts disponibles

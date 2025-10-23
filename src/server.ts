@@ -17,6 +17,7 @@ app.use(express.json()); // Para leer JSON del body
 app.use("/todo", todosRouter);
 app.use("/login", loginRouter);
 app.use("/register",registerRouter);
+//app.use("/user:id", userRouter);
 
 // Ruta base
 app.get("/", (req, res) => {

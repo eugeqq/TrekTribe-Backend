@@ -14,22 +14,23 @@ router.post("/", async (req, res) => {
   }
 
   try {
-    // 1️⃣ Buscar el usuario por email
+    
     const user = await prisma.user.findUnique({ where: { email } });
     if (!user) {
       return res.status(400).json({ error: "Usuario no encontrado" });
     }
 
-    // 2️⃣ Verificar contraseña
+    
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res.status(400).json({ error: "Contraseña incorrecta" });
     }
 
-    // 3️⃣ Responder con los datos del usuario
+    
     res.status(200).json({
       id: user.id,
       nombre: user.nombre,
+      apellido: user.apellido,
       email: user.email,
     });
   } catch (error) {
