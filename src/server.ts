@@ -5,6 +5,8 @@ import express from "express";
 import loginRouter from "./routes/login.js";
 import registerRouter from "./routes/register.js";
 import todosRouter from "./routes/todo.js";
+import tribesRouter from "./routes/tribes.js";
+
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,11 +14,12 @@ const PORT = process.env.PORT || 3000;
 // Middlewares
 app.use(cors());
 app.use(express.json()); // Para leer JSON del body
-
+app.use("/uploads", express.static("uploads"));
 // Rutas
 app.use("/todo", todosRouter);
 app.use("/login", loginRouter);
 app.use("/register",registerRouter);
+app.use("/tribes", tribesRouter);
 //app.use("/user:id", userRouter);
 
 // Ruta base

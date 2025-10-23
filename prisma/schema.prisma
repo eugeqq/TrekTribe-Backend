@@ -39,6 +39,10 @@ model Viaje {
   descripcion   String?
   fechaInicio   DateTime?
   fechaFin      DateTime?
+  ubicacion     String?
+  maxMiembros   Int?
+  creadorId     Int?
+  imagen        String?
   miembros      MiembroViaje[]
   tareas        Tarea[]
   gastos        Gasto[]
