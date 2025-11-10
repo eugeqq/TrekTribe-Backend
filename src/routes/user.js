@@ -5,9 +5,10 @@ const router = Router();
 const prisma = new PrismaClient();
 
 router.get("/:id", async (req, res) => {
+  
   try {
     const user = await prisma.user.findUnique({
-      where: { id: req.params.id },
+      where: { id: Number(req.params.id) },
     });
 
     if (!user) return res.status(404).json({ error: "Usuario no encontrado" });
@@ -17,3 +18,4 @@ router.get("/:id", async (req, res) => {
     res.status(500).json({ error: "Error interno del servidor" });
   }
 });
+export default router;

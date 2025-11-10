@@ -6,6 +6,8 @@ import loginRouter from "./routes/login.js";
 import registerRouter from "./routes/register.js";
 import todosRouter from "./routes/todo.js";
 import tribesRouter from "./routes/tribes.js";
+import userRouter from "./routes/user.js";
+
 
 
 const app = express();
@@ -16,6 +18,7 @@ app.use(cors());
 app.use(express.json()); // Para leer JSON del body
 app.use("/uploads", express.static("uploads"));
 // Rutas
+app.use("/user", userRouter);
 app.use("/todo", todosRouter);
 app.use("/login", loginRouter);
 app.use("/register",registerRouter);

@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
 import { Router } from "express";
+import validator from "validator";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -14,8 +15,11 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "Faltan datos obligatorios" });
     }
 
-    
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!validator.isEmail(normalizedEmail)) {
+      return res.status(400).json({ error: "Email inválido" });
+      }
+    const existingUser = await prisma.user.findUnique({ where: { normalizedEmail } });
     if (existingUser) {
       return res.status(400).json({ error: "El email ya está registrado" });
     }
