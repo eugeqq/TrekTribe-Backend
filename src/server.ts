@@ -7,6 +7,7 @@ import registerRouter from "./routes/register.js";
 import todosRouter from "./routes/todo.js";
 import tribesRouter from "./routes/tribes.js";
 import userRouter from "./routes/user.js";
+import viajesRouter from "./routes/viajes.js";
 
 
 
@@ -23,7 +24,8 @@ app.use("/todo", todosRouter);
 app.use("/login", loginRouter);
 app.use("/register",registerRouter);
 app.use("/tribes", tribesRouter);
-//app.use("/user:id", userRouter);
+app.use("/viajes", viajesRouter);
+
 
 // Ruta base
 app.get("/", (req, res) => {

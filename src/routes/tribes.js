@@ -41,7 +41,7 @@ router.post("/", upload.single("imagen"), async (req, res) => {
         fechaInicio: parseFecha(fechaInicio),
         fechaFin: parseFecha(fechaFin),
         ubicacion,
-        creadorId: parseInt(creadorId),
+        creadorId: Number(creadorId),
         imagen: req.file ? req.file.path : null,
       },
     });
