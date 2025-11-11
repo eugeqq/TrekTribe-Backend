@@ -184,5 +184,77 @@ router.post("/:id/miembros", async (req, res) => {
   }
 });
 
+router.get("/:viajeId/itinerario", async (req, res) => {
+  try {
+    const viajeId = Number(req.params.viajeId);
+    if (Number.isNaN(viajeId)) return res.status(400).json({ error: "viajeId inválido" });
+
+    const rows = await prisma.itinerarioEvento.findMany({
+      where: { viajeId },
+      orderBy: { fechaHora: "asc" },
+    });
+    res.json(rows);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Error al listar itinerario" });
+  }
+});
+
+// POST /viajes/:viajeId/itinerario 
+router.post("/:viajeId/itinerario", async (req, res) => {
+  try {
+    const viajeId = Number(req.params.viajeId);
+    const { titulo, descripcion, fechaHora } = req.body;
+    if (!titulo || !fechaHora) return res.status(400).json({ error: "Falta titulo o fechaHora" });
+
+    const row = await prisma.itinerarioEvento.create({
+      data: {
+        viajeId,
+        titulo,
+        descripcion: descripcion ?? null,
+        fechaHora: new Date(fechaHora),
+      },
+    });
+    res.status(201).json(row);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Error al crear evento" });
+  }
+});
+
+// PUT /itinerario/:id
+router.put("/itinerario/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { titulo, descripcion, fechaHora } = req.body;
+
+    const row = await prisma.itinerarioEvento.update({
+      where: { id },
+      data: {
+        titulo,
+        descripcion: descripcion ?? null,
+        fechaHora: new Date(fechaHora),
+      },
+    });
+    res.json(row);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Error al actualizar evento" });
+  }
+});
+
+// DELETE /itinerario/:id
+router.delete("/itinerario/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    await prisma.itinerarioEvento.delete({ where: { id } });
+    res.status(204).end();
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: "Error al eliminar evento" });
+  }
+});
+
+
 
 export default router;
