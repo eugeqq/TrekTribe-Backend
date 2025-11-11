@@ -1,7 +1,7 @@
 import cors from "cors";
 import express from "express";
 
-// Importar tus rutas
+
 import loginRouter from "./routes/login.js";
 import registerRouter from "./routes/register.js";
 import todosRouter from "./routes/todo.js";
@@ -14,11 +14,11 @@ import viajesRouter from "./routes/viajes.js";
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middlewares
+
 app.use(cors());
-app.use(express.json()); // Para leer JSON del body
+app.use(express.json()); 
 app.use("/uploads", express.static("uploads"));
-// Rutas
+
 app.use("/user", userRouter);
 app.use("/todo", todosRouter);
 app.use("/login", loginRouter);
@@ -27,12 +27,12 @@ app.use("/tribes", tribesRouter);
 app.use("/viajes", viajesRouter);
 
 
-// Ruta base
+
 app.get("/", (req, res) => {
   res.send("🚀 Servidor corriendo!");
 });
 
-// Puerto
+
 app.listen(PORT, () => {
   console.log(`Servidor escuchando en http://localhost:${PORT}`);
 });

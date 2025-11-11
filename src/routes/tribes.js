@@ -5,7 +5,6 @@ import multer from "multer";
 const router = express.Router();
 const prisma = new PrismaClient();
 
-
 const storage = multer.diskStorage({
   destination: "uploads/",
   filename: (req, file, cb) => {
@@ -13,9 +12,7 @@ const storage = multer.diskStorage({
     cb(null, uniqueName);
   },
 });
-
 const upload = multer({ storage });
-
 
 router.post("/", upload.single("imagen"), async (req, res) => {
   try {
@@ -24,8 +21,10 @@ router.post("/", upload.single("imagen"), async (req, res) => {
     if (!nombre || !ubicacion) {
       return res.status(400).json({ error: "Complete los campos requeridos" });
     }
+    if (!creadorId || Number.isNaN(Number(creadorId))) {
+      return res.status(400).json({ error: "creadorId inválido" });
+    }
 
-    
     const parseFecha = (f) => {
       if (!f) return null;
       const partes = f.split("/");
@@ -43,6 +42,24 @@ router.post("/", upload.single("imagen"), async (req, res) => {
         ubicacion,
         creadorId: Number(creadorId),
         imagen: req.file ? req.file.path : null,
+
+       
+        miembros: {
+          create: [
+            {
+              usuario: { connect: { id: Number(creadorId) } },
+              rol: "admin",
+            },
+          ],
+        },
+      },
+      
+      select: {
+        id: true,
+        nombre: true,
+        ubicacion: true,
+        imagen: true,
+        creadorId: true,
       },
     });
 
@@ -52,6 +69,5 @@ router.post("/", upload.single("imagen"), async (req, res) => {
     res.status(500).json({ error: "Error al crear la tribu" });
   }
 });
-
 
 export default router;
