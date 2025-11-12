@@ -10,9 +10,12 @@ const prisma = new PrismaClient();
  * body: { monto, categoria, descripcion, pagadoPorId, viajeId, participants? }
  */
 router.post("/", async (req, res) => {
-  const { monto, categoria, descripcion, pagadoPorId, viajeId } = req.body;
+  console.log("🟢 POST /gastos llamado");
+  console.log("Body recibido:", req.body);
 
   try {
+     const { monto, categoria, descripcion, pagadoPorId, viajeId, participantes } = req.body;
+
     if (monto == null || !pagadoPorId || !viajeId) {
       return res.status(400).json({ error: "Faltan datos obligatorios" });
     }
@@ -24,21 +27,30 @@ router.post("/", async (req, res) => {
         descripcion: descripcion ?? null,
         pagadoPorId: Number(pagadoPorId),
         viajeId: Number(viajeId),
+        participantes: {
+          connect: participantes.map((id) => ({ id: Number(id) })), // ← relación muchos-a-muchos
+        },
       },
       include: {
         pagadoPor: { select: { id: true, nombre: true, apellido: true } },
+        participantes: { select: { id: true, nombre: true, apellido: true } },
       },
+    });
+    console.log("✅ Gasto creado correctamente:", {
+      id: nuevo.id,
+      descripcion: nuevo.descripcion,
+      participantes: nuevo.participantes.map((p) => p.id),
     });
 
     res.status(201).json({
-      id: String(nuevo.id),
-      title: nuevo.descripcion ?? "Gasto",
-      amount: Number(nuevo.monto),
-      payerId: String(nuevo.pagadoPorId),
-      payerName: nuevo.pagadoPor ? `${nuevo.pagadoPor.nombre} ${nuevo.pagadoPor.apellido}` : null,
-      createdAt: nuevo.creadoEn,
-      category: nuevo.categoria ?? null,
-      participants: [],
+        id: String(nuevo.id),
+        title: nuevo.descripcion ?? "Gasto",
+        amount: Number(nuevo.monto),
+        payerId: String(nuevo.pagadoPorId),
+        payerName: nuevo.pagadoPor ? `${nuevo.pagadoPor.nombre} ${nuevo.pagadoPor.apellido}` : null,
+        createdAt: nuevo.creadoEn,
+        category: nuevo.categoria ?? null,
+        participants: nuevo.participantes.map((p) => String(p.id)),
     });
   } catch (error) {
     console.error("Error POST /gastos", error);
@@ -62,10 +74,14 @@ router.put("/:id", async (req, res) => {
         categoria: categoria ?? undefined,
         descripcion: descripcion ?? undefined,
         pagadoPorId: pagadoPorId != null ? Number(pagadoPorId) : undefined,
+        participantes: {
+          set: participantes.map((id) => ({ id: Number(id) })), // reemplaza relaciones anteriores
+        },
       },
       include: {
         pagadoPor: { select: { id: true, nombre: true, apellido: true } },
-      },
+        participantes: { select: { id: true, nombre: true, apellido: true } },
+    },
     });
 
     res.json({
@@ -76,7 +92,7 @@ router.put("/:id", async (req, res) => {
       payerName: updated.pagadoPor ? `${updated.pagadoPor.nombre} ${updated.pagadoPor.apellido}` : null,
       createdAt: updated.creadoEn,
       category: updated.categoria ?? null,
-      participants: [],
+      participants: updated.participantes.map((p) => String(p.id)),
     });
   } catch (error) {
     console.error("Error PUT /gastos/:id", error);
@@ -99,83 +115,3 @@ router.delete("/:id", async (req, res) => {
 });
 
 export default router;
-
-/*import { PrismaClient } from "@prisma/client";
-import { Router } from "express";
-
-const router = Router();
-const prisma = new PrismaClient();
-
-
-router.get("/:viajeId", async (req, res) => {
-  const { viajeId } = req.params;
-
-  try {
-    const gastos = await prisma.gasto.findMany({
-      where: { viajeId: parseInt(viajeId) },
-      include: {
-        pagadoPor: {
-          select: { id: true, nombre: true, apellido: true, email: true },
-        },
-      },
-      orderBy: { creadoEn: "desc" },
-    });
-
-    res.json(gastos);
-  } catch (error) {
-    console.error("Error obteniendo gastos:", error);
-    res.status(500).json({ error: "Error interno al obtener los gastos" });
-  }
-});
-
-
-router.post("/", async (req, res) => {
-  const { monto, categoria, descripcion, pagadoPorId, viajeId } = req.body;
-
-  try {
-    if (!monto || !pagadoPorId || !viajeId) {
-      return res.status(400).json({ error: "Faltan datos obligatorios" });
-    }
-
-    const nuevoGasto = await prisma.gasto.create({
-      data: {
-        monto: parseFloat(monto),
-        categoria,
-        descripcion,
-        pagadoPorId: parseInt(pagadoPorId),
-        viajeId: parseInt(viajeId),
-      },
-      include: {
-        pagadoPor: {
-          select: { id: true, nombre: true, apellido: true, email: true },
-        },
-      },
-    });
-
-    res.status(201).json(nuevoGasto);
-  } catch (error) {
-    console.error("Error al crear gasto:", error);
-    res.status(500).json({ error: "Error interno al crear gasto" });
-  }
-});
-
-router.get("/usuario/:userId", async (req, res) => {
-  const { userId } = req.params;
-
-  try {
-    const gastos = await prisma.gasto.findMany({
-      where: { pagadoPorId: parseInt(userId) },
-      include: {
-        viaje: { select: { id: true, nombre: true } },
-      },
-      orderBy: { creadoEn: "desc" },
-    });
-
-    res.json(gastos);
-  } catch (error) {
-    console.error("Error obteniendo gastos de usuario:", error);
-    res.status(500).json({ error: "Error interno al obtener los gastos" });
-  }
-});
-
-export default router;*/

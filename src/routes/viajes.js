@@ -124,6 +124,7 @@ router.get("/:viajeId/gastos", async (req, res) => {
       where: { viajeId: Number(viajeId) },
       include: {
         pagadoPor: { select: { id: true, nombre: true, apellido: true } },
+        participantes: { select: { id: true, nombre: true, apellido: true } },
       },
       orderBy: { creadoEn: "desc" },
     });
@@ -138,8 +139,7 @@ router.get("/:viajeId/gastos", async (req, res) => {
       payerName: g.pagadoPor ? `${g.pagadoPor.nombre} ${g.pagadoPor.apellido}` : null,
       createdAt: g.creadoEn,
       category: g.categoria ?? null,
-      
-      participants: [], 
+      participants: g.participantes.map((p) => String(p.id)),
     }));
 
     res.json(gastosFormateados);

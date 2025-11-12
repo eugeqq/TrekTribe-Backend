@@ -29,6 +29,7 @@ model User {
   viajes       MiembroViaje[]
   tareas       Tarea[]         @relation("TareasUsuario")
   gastos       Gasto[]         @relation("GastosUsuario")
+  gastosParticipados Gasto[]        @relation("ParticipantesGasto")
   mensajes     ChatMensaje[]
   creadoAt     DateTime        @default(now())
 }
@@ -81,6 +82,7 @@ model Gasto {
   viajeId      Int
   pagadoPor    User   @relation("GastosUsuario", fields: [pagadoPorId], references: [id])
   viaje        Viaje     @relation(fields: [viajeId], references: [id])
+  participantes User[]   @relation("ParticipantesGasto")
   creadoEn     DateTime  @default(now())
 }
 
