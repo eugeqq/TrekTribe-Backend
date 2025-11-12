@@ -5,11 +5,11 @@ import path from "node:path";
 import gastosRouter from "./routes/gastos.js";
 import loginRouter from "./routes/login.js";
 import registerRouter from "./routes/register.js";
+import tareasRouter from "./routes/tareas.js";
 import todosRouter from "./routes/todo.js";
 import tribesRouter from "./routes/tribes.js";
 import userRouter from "./routes/user.js";
 import viajesRouter from "./routes/viajes.js";
-
 const app = express();
 const PORT = process.env.PORT || 3000;
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
@@ -29,7 +29,7 @@ app.use("/register",registerRouter);
 app.use("/tribes", tribesRouter);
 app.use("/viajes", viajesRouter);
 app.use("/gastos", gastosRouter);
-
+app.use("/",tareasRouter)
 
 
 
