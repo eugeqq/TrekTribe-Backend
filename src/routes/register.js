@@ -18,8 +18,12 @@ router.post("/", async (req, res) => {
     const normalizedEmail = email.trim().toLowerCase();
     if (!validator.isEmail(normalizedEmail)) {
       return res.status(400).json({ error: "Email inválido" });
-      }
-    const existingUser = await prisma.user.findUnique({ where: { normalizedEmail } });
+    }
+    const existingUser = await prisma.user.findUnique({
+      where: {
+        email: normalizedEmail}
+    });
+
     if (existingUser) {
       return res.status(400).json({ error: "El email ya está registrado" });
     }
