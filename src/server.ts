@@ -2,6 +2,7 @@ import cors from "cors";
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
+import os from "os";
 import gastosRouter from "./routes/gastos.js";
 import loginRouter from "./routes/login.js";
 import registerRouter from "./routes/register.js";
@@ -10,6 +11,7 @@ import todosRouter from "./routes/todo.js";
 import tribesRouter from "./routes/tribes.js";
 import userRouter from "./routes/user.js";
 import viajesRouter from "./routes/viajes.js";
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const UPLOADS_DIR = path.join(process.cwd(), "uploads");
@@ -39,6 +41,10 @@ app.get("/", (req, res) => {
 });
 
 
+
+const interfaces = os.networkInterfaces();
+const wifi = interfaces.en0?.find(i => i.family === 'IPv4')?.address;
+
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Servidor escuchando en http://192.168.1.70:${PORT}`);
+  console.log(`🚀 Servidor escuchando en http://${wifi || "localhost"}:${PORT}`);
 });
