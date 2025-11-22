@@ -46,3 +46,6 @@ app-example
 /android
 
 /src/generated/prisma
+# Prisma generated client (local)
+prisma/generated/
+prisma/prisma/
