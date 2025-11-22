@@ -1,4 +1,5 @@
 import cors from "cors";
+import dotenv from "dotenv";
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
@@ -11,6 +12,8 @@ import todosRouter from "./routes/todo.js";
 import tribesRouter from "./routes/tribes.js";
 import userRouter from "./routes/user.js";
 import viajesRouter from "./routes/viajes.js";
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;

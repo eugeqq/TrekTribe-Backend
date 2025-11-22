@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 const getBaseURL = () =>
   process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
 
-router.get("/usuario/:id", async (req, res) => {
+/*router.get("/usuario/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -44,7 +44,7 @@ router.get("/usuario/:id", async (req, res) => {
       fechaInicio: v.fechaInicio,
       fechaFin: v.fechaFin,
       imagen: v.imagen,
-      imagenUrl: v.imagen ? `${base}${v.imagen}` : null,
+      imagenUrl: v.imagen ? v.imagen : null,
       miembrosCant: v.miembros.length,
       miembrosNombres: v.miembros.map((m) => `${m.usuario.nombre} ${m.usuario.apellido}`),
     }));
@@ -54,7 +54,7 @@ router.get("/usuario/:id", async (req, res) => {
     console.error("Error al obtener viajes del usuario:", error);
     res.status(500).json({ error: "Error al obtener viajes del usuario" });
   }
-});
+});*/
 
 // GET /viajes/:userId  -> viajes donde es creador o miembro
 router.get("/:userId", async (req, res) => {
@@ -81,7 +81,7 @@ router.get("/:userId", async (req, res) => {
       descripcion: v.descripcion ?? "",
       foto: v.imagen ?? "",
       imagen: v.imagen,
-      imagenUrl: v.imagen ? `${base}${v.imagen}` : null,
+      imagenUrl: v.imagen ? v.imagen : null,
       fechaInicio: v.fechaInicio,
       fechaFin: v.fechaFin,
       miembrosCant: v.miembros.length,
@@ -175,11 +175,11 @@ router.get("/detalle/:id", async (req, res) => {
       id: m.usuario.id,
       nombre: m.usuario.nombre,
     }));
+    console.log(viaje.imagen);
 
-    const base = getBaseURL();
     res.json({
       ...viaje,
-      imagenUrl: viaje.imagen ? `${base}${viaje.imagen}` : null,
+      imagenUrl: viaje.imagen,
       miembrosCant: miembrosParseados.length,
       miembros: miembrosParseados
     });

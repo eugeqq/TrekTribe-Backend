@@ -1,5 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { Router } from "express";
+import upload from "../middleware/upload.js";
+import cloudinary from "../utils/cloudinary.js";
 
 const router = Router();
 const prisma = new PrismaClient();
@@ -19,10 +21,32 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-router.put("/:id", async (req, res) => {
+router.put("/:id", upload.single("avatar"), async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, apellido, telefono, fechaNacimiento, dni, apodo, avatarUri } = req.body;
+    const { nombre, apellido, telefono, fechaNacimiento, dni, apodo, } = req.body;
+
+    let avatarUri= null;
+
+   if (req.file) {
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: "trektribe/users",
+            resource_type: "image",
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+
+        // ENVIAR el buffer del archivo a Cloudinary
+        stream.end(req.file.buffer);
+      });
+
+      avatarUri = uploadResult.secure_url;
+    }
 
     const user = await prisma.user.update({
       where: { id: Number(id) },
@@ -32,7 +56,7 @@ router.put("/:id", async (req, res) => {
         telefono,
         fechaNacimiento,
         dni,
-        avatarUri,
+        ...(avatarUri && { avatarUri }),
       },
     });
 

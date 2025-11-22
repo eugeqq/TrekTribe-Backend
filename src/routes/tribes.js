@@ -1,26 +1,10 @@
 import { PrismaClient } from "@prisma/client";
 import express from "express";
-import multer from "multer";
-import fs from "node:fs";
-import path from "node:path";
+import upload from "../middleware/upload.js";
+import cloudinary from "../utils/cloudinary.js";
 
 const router = express.Router();
 const prisma = new PrismaClient();
-
-
-
-const UPLOADS_DIR = path.join(process.cwd(), "uploads");
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
-  filename: (req, file, cb) => {
-    const safe = file.originalname.replace(/[^\w.\-]+/g, "_");
-    cb(null, Date.now() + "-" + safe);
-  },
-});
-
-const upload = multer({ storage });
 
 
 router.post("/", upload.single("imagen"), async (req, res) => {
@@ -45,10 +29,28 @@ router.post("/", upload.single("imagen"), async (req, res) => {
       const [dd, mm, yyyy] = partes;
       return new Date(`${yyyy}-${mm}-${dd}T00:00:00Z`);
     };
+   
+    let imagenUrl = null;
+
+    if (req.file) {
+      const uploadResult = await new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+          {
+            folder: "trektribe/tribes",
+            resource_type: "image",
+          },
+          (error, result) => {
+            if (error) reject(error);
+            else resolve(result);
+          }
+        );
+        stream.end(req.file.buffer);
+      });
+      console.log("Resultado Cloudinary:", uploadResult);
 
 
-    const filename = req.file?.filename || null;
-    const webPath  = filename ? `/uploads/${filename}` : null;
+      imagenUrl = uploadResult.secure_url;
+    }
 
     const nuevaTribu = await prisma.viaje.create({
       data: {
@@ -58,7 +60,7 @@ router.post("/", upload.single("imagen"), async (req, res) => {
         fechaFin: parseFecha(fechaFin),
         ubicacion,
         creadorId: Number(creadorId),
-        imagen: webPath, // <-- siempre ruta web /uploads/...
+        imagen: imagenUrl, // <-- siempre ruta web /uploads/...
 
        
         miembros: {
@@ -80,11 +82,8 @@ router.post("/", upload.single("imagen"), async (req, res) => {
       },
     });
 
-    const baseURL = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
-    res.status(201).json({
-    ...nuevaTribu,
-    imagenUrl: nuevaTribu.imagen ? `${baseURL}${nuevaTribu.imagen}` : null,
-});
+    res.status(201).json(nuevaTribu);
+
   } catch (error) {
     console.error("❌ Error detallado:", error);
     res.status(500).json({ error: "Error al crear la tribu" });
