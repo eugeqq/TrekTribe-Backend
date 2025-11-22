@@ -2,6 +2,10 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    "noEmit": false,
+    "outDir": "dist",
+    "module": "Node16",
+    "moduleResolution": "node16",
     "paths": {
       "@/*": [
         "./*"
@@ -13,5 +17,11 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
-, "src/routes/todo.js", "src/routes/todo.js"  ]
+, "src/routes/todo.js", "src/routes/todo.js", "src/server.ts", "src/app.ts"  ]
+  ,
+  "exclude": [
+    "prisma/generated",
+    "prisma/prisma",
+    "node_modules"
+  ]
 }
