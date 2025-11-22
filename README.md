@@ -77,11 +77,16 @@ http://localhost:3000
 Scripts disponibles
 
 "scripts": {
-  "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
+  "dev": "ts-node-dev --respawn --transpile-only --prefer-ts-exts src/server.ts",
+  "dev:build": "tsc --watch -p tsconfig.json",
+  "dev:run": "node dist/server.js",
   "build": "tsc",
   "start": "node dist/server.js",
-  "prisma:generate": "prisma generate",
-  "prisma:migrate": "prisma migrate dev"
+  "reset-project": "node ./scripts/reset-project.js",
+  "android": "expo start --android",
+  "ios": "expo start --ios",
+  "web": "expo start --web",
+  "lint": "expo lint"
 }
 
 - npm run dev → Levanta el servidor en modo desarrollo
@@ -95,3 +100,31 @@ Notas importantes
 
 - Si cambiás el schema.prisma o el proveedor de la base de datos, borrá la carpeta prisma/migrations y generá nuevamente la migración para evitar errores.
 - La base de datos usada es SQLite (dev.db) y se encuentra en la carpeta prisma/.
+
+### Sobre el cliente de Prisma y archivos generados
+
+- El cliente generado de Prisma (`prisma/generated/` o `prisma/prisma/`) y la base de datos local `prisma/dev.db` NO están versionados en el repositorio por diseño.
+- Esto evita conflictos y mantiene el repo liviano; en su lugar, cada desarrollador (y CI) debe ejecutar `npx prisma generate` localmente para generar `@prisma/client`.
+
+Si clonas el repositorio, asegúrate de ejecutar:
+
+```bash
+# instalar dependencias
+npm install
+
+# generar prisma client (si no lo hizo postinstall)
+npx prisma generate
+
+# (opcional) aplicar migraciones locales a la sqlite dev.db
+npx prisma migrate dev --name init
+```
+
+### Variables de entorno adicionales (Cloudinary)
+
+Si usas las rutas que suben imágenes a Cloudinary, añade estas variables a tu `.env`:
+
+```env
+CLOUDINARY_CLOUD_NAME=tu_cloud_name
+CLOUDINARY_API_KEY=tu_api_key
+CLOUDINARY_API_SECRET=tu_api_secret
+```
