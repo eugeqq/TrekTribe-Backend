@@ -49,3 +49,4 @@ app-example
 # Prisma generated client (local)
 prisma/generated/
 prisma/prisma/
+prisma/dev.db
