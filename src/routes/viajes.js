@@ -7,7 +7,7 @@ const prisma = new PrismaClient();
 const getBaseURL = () =>
   process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
 
-/*router.get("/usuario/:id", async (req, res) => {
+router.get("/usuario/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -35,7 +35,7 @@ const getBaseURL = () =>
       },
     });
 
-    const base = getBaseURL();
+    
     const data = viajes.map((v) => ({
       id: v.id,
       nombre: v.nombre,
@@ -54,7 +54,7 @@ const getBaseURL = () =>
     console.error("Error al obtener viajes del usuario:", error);
     res.status(500).json({ error: "Error al obtener viajes del usuario" });
   }
-});*/
+});
 
 // GET /viajes/:userId  -> viajes donde es creador o miembro
 router.get("/:userId", async (req, res) => {
@@ -73,7 +73,6 @@ router.get("/:userId", async (req, res) => {
       orderBy: { id: "desc" },
     });
 
-    const base = getBaseURL();
     const viajesFormateados = viajes.map((v) => ({
       id: v.id,
       nombre: v.nombre,
@@ -175,7 +174,6 @@ router.get("/detalle/:id", async (req, res) => {
       id: m.usuario.id,
       nombre: m.usuario.nombre,
     }));
-    console.log(viaje.imagen);
 
     res.json({
       ...viaje,
