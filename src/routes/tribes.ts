@@ -44,7 +44,7 @@ router.post("/", upload.single("imagen"), async (req, res) => {
         );
         stream.end((req as any).file.buffer);
       });
-      console.log("Resultado Cloudinary:", uploadResult);
+      
 
       imagenUrl = uploadResult.secure_url;
     }
