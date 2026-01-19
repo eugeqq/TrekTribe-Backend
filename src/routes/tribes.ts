@@ -8,9 +8,6 @@ const prisma = new PrismaClient();
 
 router.post("/", upload.single("imagen"), async (req, res) => {
   try {
-    console.log("POST /tribes body fields:", req.body);
-    console.log("POST /tribes file:", (req as any).file);
-
     const { nombre, descripcion, fechaInicio, fechaFin, ubicacion, creadorId } = req.body;
 
     if (!nombre || !ubicacion) {
