@@ -1,16 +1,45 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import jwt from "jsonwebtoken";
 import validator from "validator";
+import winston from "winston";
 
-const JWT_SECRET = process.env.JWT_SECRET || "tu-secret-key-segura";
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET no está definido en las variables de entorno. Configúralo para seguridad.");
+}
+
+const JWT_SECRET = process.env.JWT_SECRET;
+
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  transports: [
+    new winston.transports.File({ filename: 'security.log' }),
+    new winston.transports.Console()
+  ]
+});
+
+// Blacklist de tokens revocados (en memoria para simplicidad; usa Redis en producción)
+const tokenBlacklist = new Set<string>();
 
 
 const router = Router();
 const prisma = new PrismaClient();
 
-router.post("/", async (req, res) => {
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 5, // Máximo 5 intentos por IP
+  message: "Demasiados intentos de login. Inténtalo de nuevo en 15 minutos.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.post("/", loginLimiter, async (req, res) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -22,23 +51,19 @@ router.post("/", async (req, res) => {
     if (!validator.isEmail(normalizedEmail)) {
       return res.status(400).json({ error: "Email inválido" });
     }
-    console.log("[LOGIN] request body:", { email, password: password ? "****" : null });
     const user = await prisma.user.findUnique({ where: {  email: normalizedEmail } });
     if (!user) {
-      return res.status(400).json({ error: "Usuario no encontrado" });
+      return res.status(401).json({ error: "Credenciales inválidas" });
     }
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      return res.status(400).json({ error: "Contraseña incorrecta" });
+      return res.status(401).json({ error: "Credenciales inválidas" });
     
     }
-    console.log("[LOGIN] user found:", { id: user.id, email: user.email });
-    
 
-    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: "30d" });
-
-    console.log("[LOGIN] response payload:", { id: user.id, nombre: user.nombre, email: user.email, tokenLength: token?.length ?? 0 });
+    const token = jwt.sign({ id: user.id, email: user.email }, JWT_SECRET, { expiresIn: "7d" });
+    logger.info('Login exitoso', { email: normalizedEmail, ip: req.ip, userId: user.id });
 
     res.status(200).json({
       id: user.id,
@@ -48,7 +73,6 @@ router.post("/", async (req, res) => {
       token, // Retorna el token
     });
   } catch (error) {
-    console.error("Error en login:", error);
     res.status(500).json({ error: "Error interno al iniciar sesión" });
   }
 });
@@ -61,10 +85,13 @@ router.post("/validate-session", async (req, res) => {
   if (!token) {
     return res.status(400).json({ valid: false, error: "Token requerido" });
   }
-  console.log("[VALIDATE] body:", req.body);
+
+  if (tokenBlacklist.has(token)) {
+    return res.status(401).json({ valid: false, error: "Token revocado" });
+  }
+
   try {
     const decoded: any = jwt.verify(token, JWT_SECRET);
-    console.log("[VALIDATE] decoded:", decoded);
     const user = await prisma.user.findUnique({
       where: { id: Number(decoded.id) },
       select: { id: true, email: true, nombre: true, apellido: true },
@@ -76,8 +103,26 @@ router.post("/validate-session", async (req, res) => {
 
     res.status(200).json({ valid: true, user });
   } catch (error) {
-    console.error("[VALIDATE] jwt error:", error);
     res.status(401).json({ valid: false, error: "Token inválido o expirado" });
+  }
+});
+
+// Logout: Revoca el token agregándolo a la blacklist
+router.post("/logout", async (req, res) => {
+  const { token } = req.body;
+
+  if (!token) {
+    return res.status(400).json({ error: "Token requerido" });
+  }
+
+  try {
+    // Verifica que el token sea válido antes de revocarlo
+    jwt.verify(token, JWT_SECRET);
+    tokenBlacklist.add(token);
+    logger.info('Token revocado en logout', { ip: req.ip });
+    res.status(200).json({ message: "Logout exitoso" });
+  } catch (error) {
+    res.status(401).json({ error: "Token inválido" });
   }
 });
 
