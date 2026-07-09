@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Chat" ADD COLUMN "leidoPorAEn" DATETIME;
+ALTER TABLE "Chat" ADD COLUMN "leidoPorBEn" DATETIME;

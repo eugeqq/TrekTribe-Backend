@@ -31,6 +31,11 @@ model User {
   gastos       Gasto[]         @relation("GastosUsuario")
   gastosParticipados Gasto[]        @relation("ParticipantesGasto")
   mensajes     ChatMensaje[]
+  pagosRealizados  Settlement[] @relation("SettlementsPagador")
+  pagosRecibidos   Settlement[] @relation("SettlementsReceptor")
+  chatsComoA       Chat[]       @relation("ChatUsuarioA")
+  chatsComoB       Chat[]       @relation("ChatUsuarioB")
+  mensajesChatPrivado MensajeChatPrivado[]
   creadoAt     DateTime        @default(now())
 }
 
@@ -49,6 +54,7 @@ model Viaje {
   gastos        Gasto[]
   mensajes      ChatMensaje[]
   itinerario    ItinerarioEvento[]
+  settlements   Settlement[]
   creadoEn      DateTime        @default(now())
 }
 
@@ -100,7 +106,52 @@ model ItinerarioEvento {
   id          Int      @id @default(autoincrement())
   titulo      String
   descripcion String?
+  ubicacion   String?
   fechaHora   DateTime
   viajeId     Int
   viaje       Viaje    @relation(fields: [viajeId], references: [id])
+}
+
+// Registra un pago que salda (total o parcialmente) una deuda entre dos
+// miembros de un viaje. No modifica los Gastos existentes: el saldo final
+// de cada persona se calcula combinando Gastos + Settlements.
+model Settlement {
+  id          Int      @id @default(autoincrement())
+  monto       Float
+  pagadorId   Int
+  receptorId  Int
+  viajeId     Int
+  pagador     User     @relation("SettlementsPagador", fields: [pagadorId], references: [id])
+  receptor    User     @relation("SettlementsReceptor", fields: [receptorId], references: [id])
+  viaje       Viaje    @relation(fields: [viajeId], references: [id])
+  creadoEn    DateTime @default(now())
+}
+
+// Chat 1 a 1 entre dos usuarios, independiente de los viajes. Se crea al
+// "invitar" a alguien por email (misma lógica que agregar un miembro a un
+// viaje: se busca el usuario existente por email y se crea el vínculo
+// directamente, sin un paso extra de aceptar/rechazar).
+model Chat {
+  id            Int                  @id @default(autoincrement())
+  usuarioAId    Int
+  usuarioBId    Int
+  usuarioA      User                 @relation("ChatUsuarioA", fields: [usuarioAId], references: [id])
+  usuarioB      User                 @relation("ChatUsuarioB", fields: [usuarioBId], references: [id])
+  mensajes      MensajeChatPrivado[]
+  // Marca temporal de la última vez que cada usuario abrió/leyó el chat.
+  // Si el último mensaje es posterior a esto (y no lo mandó él mismo),
+  // el chat figura como "no leído" para ese usuario.
+  leidoPorAEn   DateTime?
+  leidoPorBEn   DateTime?
+  creadoEn      DateTime             @default(now())
+}
+
+model MensajeChatPrivado {
+  id        Int      @id @default(autoincrement())
+  contenido String
+  chatId    Int
+  usuarioId Int
+  chat      Chat     @relation(fields: [chatId], references: [id])
+  usuario   User     @relation(fields: [usuarioId], references: [id])
+  enviadoEn DateTime @default(now())
 }

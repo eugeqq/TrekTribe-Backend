@@ -1,0 +1,12 @@
+-- CreateTable
+CREATE TABLE "Settlement" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "monto" REAL NOT NULL,
+    "pagadorId" INTEGER NOT NULL,
+    "receptorId" INTEGER NOT NULL,
+    "viajeId" INTEGER NOT NULL,
+    "creadoEn" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "Settlement_pagadorId_fkey" FOREIGN KEY ("pagadorId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "Settlement_receptorId_fkey" FOREIGN KEY ("receptorId") REFERENCES "User" ("id") ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT "Settlement_viajeId_fkey" FOREIGN KEY ("viajeId") REFERENCES "Viaje" ("id") ON DELETE RESTRICT ON UPDATE CASCADE
+);

@@ -31,7 +31,7 @@ router.post("/", upload.single("imagen"), async (req, res) => {
       const uploadResult: any = await new Promise((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
           {
-            folder: "trektribe/tribes",
+            asset_folder: "trektribe/tribes",
             resource_type: "image",
           },
           (error: any, result: any) => {

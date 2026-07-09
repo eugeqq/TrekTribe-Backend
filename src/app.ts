@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
+import chatsRouter from "./routes/chats";
 import gastosRouter from "./routes/gastos";
 import loginRouter from "./routes/login";
 import registerRouter from "./routes/register";
@@ -32,6 +33,7 @@ app.use("/register", registerRouter);
 app.use("/tribes", tribesRouter);
 app.use("/viajes", viajesRouter);
 app.use("/gastos", gastosRouter);
+app.use("/chats", chatsRouter);
 app.use("/", tareasRouter);
 
 app.get("/", (req, res) => {

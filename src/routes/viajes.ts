@@ -150,6 +150,80 @@ router.get("/:viajeId/gastos", async (req, res) => {
   }
 });
 
+// GET /viajes/:viajeId/settlements -> pagos que saldan deudas dentro del viaje
+router.get("/:viajeId/settlements", async (req, res) => {
+  const { viajeId } = req.params;
+  try {
+    const settlements = await prisma.settlement.findMany({
+      where: { viajeId: Number(viajeId) },
+      include: {
+        pagador: { select: { id: true, nombre: true, apellido: true } },
+        receptor: { select: { id: true, nombre: true, apellido: true } },
+      },
+      orderBy: { creadoEn: "desc" },
+    });
+
+    const settlementsFormateados = settlements.map((s) => ({
+      id: String(s.id),
+      monto: Number(s.monto),
+      pagadorId: String(s.pagadorId),
+      pagadorNombre: s.pagador ? `${s.pagador.nombre} ${s.pagador.apellido}` : null,
+      receptorId: String(s.receptorId),
+      receptorNombre: s.receptor ? `${s.receptor.nombre} ${s.receptor.apellido}` : null,
+      createdAt: s.creadoEn,
+    }));
+
+    res.json(settlementsFormateados);
+  } catch (error) {
+    console.error("Error en GET /viajes/:viajeId/settlements", error);
+    res.status(500).json({ error: "Error al obtener los pagos del viaje" });
+  }
+});
+
+// POST /viajes/:viajeId/settlements -> registrar un pago que salda una deuda
+router.post("/:viajeId/settlements", async (req, res) => {
+  const { viajeId } = req.params;
+  const { pagadorId, receptorId, monto } = req.body;
+
+  if (monto == null || Number.isNaN(Number(monto)) || Number(monto) <= 0) {
+    return res.status(400).json({ error: "Monto inválido" });
+  }
+  if (!pagadorId || !receptorId) {
+    return res.status(400).json({ error: "Faltan pagadorId o receptorId" });
+  }
+  if (Number(pagadorId) === Number(receptorId)) {
+    return res.status(400).json({ error: "El pagador y el receptor no pueden ser la misma persona" });
+  }
+
+  try {
+    const nuevo = await prisma.settlement.create({
+      data: {
+        monto: Number(monto),
+        pagadorId: Number(pagadorId),
+        receptorId: Number(receptorId),
+        viajeId: Number(viajeId),
+      },
+      include: {
+        pagador: { select: { id: true, nombre: true, apellido: true } },
+        receptor: { select: { id: true, nombre: true, apellido: true } },
+      },
+    });
+
+    res.status(201).json({
+      id: String(nuevo.id),
+      monto: Number(nuevo.monto),
+      pagadorId: String(nuevo.pagadorId),
+      pagadorNombre: `${nuevo.pagador.nombre} ${nuevo.pagador.apellido}`,
+      receptorId: String(nuevo.receptorId),
+      receptorNombre: `${nuevo.receptor.nombre} ${nuevo.receptor.apellido}`,
+      createdAt: nuevo.creadoEn,
+    });
+  } catch (error) {
+    console.error("Error en POST /viajes/:viajeId/settlements", error);
+    res.status(500).json({ error: "Error al registrar el pago" });
+  }
+});
+
 router.get("/detalle/:id", async (req, res) => {
   const { id } = req.params;
 
@@ -278,7 +352,7 @@ router.get("/:viajeId/itinerario", async (req, res) => {
 router.post("/:viajeId/itinerario", async (req, res) => {
   try {
     const viajeId = Number(req.params.viajeId);
-    const { titulo, descripcion, fechaHora } = req.body;
+    const { titulo, descripcion, fechaHora, ubicacion } = req.body;
     if (!titulo || !fechaHora) return res.status(400).json({ error: "Falta titulo o fechaHora" });
 
     const row = await prisma.itinerarioEvento.create({
@@ -286,6 +360,7 @@ router.post("/:viajeId/itinerario", async (req, res) => {
         viajeId,
         titulo,
         descripcion: descripcion ?? null,
+        ubicacion: ubicacion ?? null,
         fechaHora: new Date(fechaHora),
       },
     });
@@ -300,13 +375,14 @@ router.post("/:viajeId/itinerario", async (req, res) => {
 router.put("/itinerario/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const { titulo, descripcion, fechaHora } = req.body;
+    const { titulo, descripcion, fechaHora, ubicacion } = req.body;
 
     const row = await prisma.itinerarioEvento.update({
       where: { id },
       data: {
         titulo,
         descripcion: descripcion ?? null,
+        ubicacion: ubicacion ?? null,
         fechaHora: new Date(fechaHora),
       },
     });

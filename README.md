@@ -10,6 +10,7 @@ Backend de la aplicación **TrekTribe**, una plataforma para organizar y gestion
 - [Requisitos Previos](#requisitos-previos)
 - [Instalación](#instalación)
 - [Variables de Entorno](#variables-de-entorno)
+- [Guía: conectar tu propia cuenta de Cloudinary](#☁️-guía-conectar-tu-propia-cuenta-de-cloudinary)
 - [Configuración de Base de Datos](#configuración-de-base-de-datos)
 - [Cómo Levantar el Servidor](#cómo-levantar-el-servidor)
 - [Scripts Disponibles](#scripts-disponibles)
@@ -92,16 +93,9 @@ JWT_SECRET=tu_secreto_super_seguro_aqui
 CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
+```
 
-
-#### Configuración de Cloudinary (para imágenes):
-
-1. Crea una cuenta en [Cloudinary.com](https://cloudinary.com/)
-2. Ve a tu dashboard y copia:
-   - Cloud Name
-   - API Key
-   - API Secret
-3. Agrégalos al archivo `.env`
+> La guía detallada para obtener estos tres valores de Cloudinary está más abajo, en [Guía: conectar tu propia cuenta de Cloudinary](#☁️-guía-conectar-tu-propia-cuenta-de-cloudinary).
 
 ### 4. Configurar la Base de Datos
 
@@ -134,6 +128,63 @@ Este comando:
 
 ---
 
+## ☁️ Guía: conectar tu propia cuenta de Cloudinary
+
+Cloudinary es el servicio que usa el backend para guardar las imágenes (avatares de usuario y fotos de tribu/viaje). Sin credenciales válidas, la subida de imágenes falla (aunque el resto de la app funcione bien). Seguí estos pasos con tu propia cuenta:
+
+### 1. Crear la cuenta
+
+1. Andá a [cloudinary.com](https://cloudinary.com/users/register/free) y creá una cuenta gratuita (el plan Free alcanza de sobra para este proyecto).
+2. Confirmá el email si te lo pide.
+
+### 2. Copiar las credenciales al `.env`
+
+1. Entrá al [Dashboard](https://console.cloudinary.com/) de Cloudinary.
+2. En la parte superior vas a ver **Product Environment Credentials** (o el panel "Account Details"), con tres datos:
+   - **Cloud Name**
+   - **API Key**
+   - **API Secret** (tocá el ícono del ojo o "Reveal" para verlo, y usá el botón de copiar — no lo tipees a mano, es fácil recortarlo por error)
+3. Pegalos en el `.env` del backend:
+   ```env
+   CLOUDINARY_CLOUD_NAME=tu_cloud_name
+   CLOUDINARY_API_KEY=tu_api_key
+   CLOUDINARY_API_SECRET=tu_api_secret
+   ```
+4. Reiniciá el servidor (`npm run dev`) para que tome las nuevas variables.
+
+### 3. Usá la API Key "Root" (importante)
+
+Cloudinary permite crear API Keys adicionales con permisos restringidos (por ejemplo, para subida sin poder borrar, o limitadas a ciertas carpetas). Si usás una de esas keys en vez de la key raíz de la cuenta, vas a ver errores `403 Server returned unexpected status code` al subir imágenes aunque las credenciales sean "correctas".
+
+Para evitarlo:
+1. En el Dashboard, andá a **Settings → API Keys** (o `console.cloudinary.com/settings/api-keys`).
+2. Usá la key marcada como **Root** (la que se crea por defecto con la cuenta), no una key secundaria/generada.
+
+### 4. Modo de carpetas ("Dynamic Folder Mode")
+
+Las cuentas nuevas de Cloudinary vienen por defecto en **Dynamic Folder Mode**. Esto cambia cómo se especifica la carpeta destino al subir una imagen:
+
+- ❌ Parámetro viejo (Fixed Folder Mode): `folder: "trektribe/users"`
+- ✅ Parámetro correcto (Dynamic Folder Mode): `asset_folder: "trektribe/users"`
+
+El código de este proyecto (`src/routes/user.ts` y `src/routes/tribes.ts`) ya usa `asset_folder`, así que si tu cuenta es nueva (lo más probable) **no tenés que tocar nada**. Esto solo importa si en algún momento cambiás el modo de carpetas de tu cuenta en Cloudinary Settings → Upload, o si copiás este código a otro proyecto con una cuenta más vieja en Fixed Folder Mode.
+
+### 5. Verificar que funciona
+
+1. Con el backend corriendo y el `.env` actualizado, abrí la app, entrá a **Perfil** y subí una foto (o creá una tribu con imagen).
+2. Si sale bien, la imagen va a aparecer subida dentro de `Media Library` en el dashboard de Cloudinary, en la carpeta `trektribe/users` o `trektribe/tribes`.
+
+### Errores comunes
+
+| Error | Causa típica | Solución |
+|---|---|---|
+| `Invalid Signature` | El `CLOUDINARY_API_SECRET` está mal copiado (truncado o con espacios) | Volvé a copiarlo con el botón de copiar del dashboard, no lo tipees a mano |
+| `403 Server returned unexpected status code` | Estás usando una API Key restringida, no la Root | Usá la key Root de la cuenta (paso 3) |
+| `403` con cuentas antiguas | Modo de carpetas Fixed en vez de Dynamic | Revisá que el parámetro sea `asset_folder`, no `folder` (paso 4) |
+| Error genérico al subir avatar/imagen | Faltan las variables de entorno o el servidor no se reinició | Confirmá que las 3 variables estén en `.env` y reiniciá `npm run dev` |
+
+---
+
 ## 🗄️ Configuración de Base de Datos
 
 ### Modelos de Datos:
@@ -147,8 +198,10 @@ El proyecto incluye los siguientes modelos principales:
 | **MiembroViaje** | Relación entre usuarios y viajes (rol: admin/miembro) |
 | **Tarea** | Tareas asignadas dentro de viajes |
 | **Gasto** | Registro de gastos y división de costos |
-| **ChatMensaje** | Mensajes de chat dentro de viajes |
-| **ItinerarioEvento** | Eventos planificados en el itinerario |
+| **Settlement** | Pagos que saldan deudas entre miembros de un viaje ("Saldar Cuentas") |
+| **ChatMensaje** | Mensajes de chat dentro de un viaje/tribu |
+| **Chat** / **MensajeChatPrivado** | Chat 1 a 1 entre dos usuarios, con invitación por email |
+| **ItinerarioEvento** | Eventos planificados en el itinerario (con ubicación → link a Google Maps) |
 | **Todo** | Tareas personales de usuarios |
 
 Para ver la estructura completa, abre [prisma/schema.prisma](prisma/schema.prisma).
@@ -279,10 +332,21 @@ TrekTribe-Backend/
 - `DELETE /tareas/:id` - Eliminar tarea
 
 ### Gastos
-- `GET /gastos` - Listar gastos
+- `GET /viajes/:viajeId/gastos` - Listar gastos de un viaje
 - `POST /gastos` - Registrar gasto
 - `PUT /gastos/:id` - Actualizar gasto
 - `DELETE /gastos/:id` - Eliminar gasto
+
+### Saldar cuentas (Settlements)
+- `GET /viajes/:viajeId/settlements` - Listar pagos que saldan deudas del viaje
+- `POST /viajes/:viajeId/settlements` - Registrar un pago entre dos miembros
+
+### Chats privados (1 a 1)
+- `GET /chats/usuario/:userId` - Listar chats del usuario (con preview y estado "no leído")
+- `POST /chats/invitar` - Iniciar (o reutilizar) un chat invitando por email
+- `GET /chats/:chatId/mensajes` - Historial de mensajes de un chat
+- `POST /chats/:chatId/mensajes` - Enviar un mensaje
+- `POST /chats/:chatId/leido` - Marcar el chat como leído
 
 > Consulta los archivos en `src/routes/` para ver todos los endpoints disponibles.
 
