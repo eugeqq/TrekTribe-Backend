@@ -195,11 +195,11 @@ El proyecto incluye los siguientes modelos principales:
 |--------|-------------|
 | **User** | Usuarios del sistema con autenticación |
 | **Viaje** | Viajes creados por usuarios |
-| **MiembroViaje** | Relación entre usuarios y viajes (rol: admin/miembro) |
+| **MiembroViaje** | Relación entre usuarios y viajes (rol: admin/miembro). También guarda `chatLeidoEn`, la última vez que ese usuario abrió el chat grupal del viaje |
 | **Tarea** | Tareas asignadas dentro de viajes |
 | **Gasto** | Registro de gastos y división de costos |
 | **Settlement** | Pagos que saldan deudas entre miembros de un viaje ("Saldar Cuentas") |
-| **ChatMensaje** | Mensajes de chat dentro de un viaje/tribu |
+| **ChatMensaje** | Mensajes del chat grupal de un viaje/tribu: todos sus miembros comparten un único chat |
 | **Chat** / **MensajeChatPrivado** | Chat 1 a 1 entre dos usuarios, con invitación por email |
 | **ItinerarioEvento** | Eventos planificados en el itinerario (con ubicación → link a Google Maps) |
 | **Todo** | Tareas personales de usuarios |
@@ -340,6 +340,14 @@ TrekTribe-Backend/
 ### Saldar cuentas (Settlements)
 - `GET /viajes/:viajeId/settlements` - Listar pagos que saldan deudas del viaje
 - `POST /viajes/:viajeId/settlements` - Registrar un pago entre dos miembros
+
+### Chat grupal por tribu
+Todos los miembros de un viaje comparten un único chat (no requiere invitación: entrás automáticamente al ser miembro del viaje).
+- `GET /viajes/usuario/:id/chats` - Listar, para un usuario, los chats grupales de todas sus tribus (con preview y estado "no leído")
+- `GET /viajes/:viajeId/chat` - Historial de mensajes del chat grupal del viaje
+- `POST /viajes/:viajeId/chat` - Enviar un mensaje al chat grupal
+- `POST /viajes/:viajeId/chat/leido` - Marcar el chat grupal como leído
+- `GET /viajes/:viajeId/chat/estado?usuarioId=X` - Consulta liviana de si hay mensajes sin leer (para el puntito de "no leído")
 
 ### Chats privados (1 a 1)
 - `GET /chats/usuario/:userId` - Listar chats del usuario (con preview y estado "no leído")

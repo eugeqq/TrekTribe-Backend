@@ -53,6 +53,73 @@ router.get("/usuario/:id", async (req, res) => {
   }
 });
 
+// GET /viajes/usuario/:id/chats -> lista de chats grupales (uno por cada
+// tribu de la que el usuario es miembro), con preview del último mensaje y
+// estado de "no leído". Pensado para mostrarse junto a los chats 1 a 1 en
+// la pantalla de Chats del frontend.
+router.get("/usuario/:id/chats", async (req, res) => {
+  const userId = Number(req.params.id);
+  if (Number.isNaN(userId)) return res.status(400).json({ error: "ID de usuario inválido" });
+
+  try {
+    const miembros = await prisma.miembroViaje.findMany({
+      where: { usuarioId: userId },
+      select: {
+        chatLeidoEn: true,
+        viaje: {
+          select: {
+            id: true,
+            nombre: true,
+            imagen: true,
+            mensajes: {
+              orderBy: { enviadoEn: "desc" },
+              take: 1,
+              include: { usuario: { select: { id: true, nombre: true, apellido: true } } },
+            },
+          },
+        },
+      },
+    });
+
+    const data = miembros.map((m) => {
+      const v = m.viaje;
+      const ultimo = v.mensajes[0] ?? null;
+
+      const noLeido =
+        !!ultimo &&
+        ultimo.usuarioId !== userId &&
+        (!m.chatLeidoEn || new Date(ultimo.enviadoEn) > m.chatLeidoEn);
+
+      return {
+        viajeId: String(v.id),
+        nombre: v.nombre,
+        imagenUrl: v.imagen ?? null,
+        ultimoMensaje: ultimo
+          ? {
+              contenido: ultimo.contenido,
+              enviadoEn: ultimo.enviadoEn,
+              usuarioId: String(ultimo.usuarioId),
+              usuarioNombre: ultimo.usuario ? `${ultimo.usuario.nombre} ${ultimo.usuario.apellido}` : "Usuario",
+            }
+          : null,
+        noLeido,
+      };
+    });
+
+    // Los que tienen actividad más reciente primero; sin mensajes, al final.
+    data.sort((a, b) => {
+      const ta = a.ultimoMensaje ? new Date(a.ultimoMensaje.enviadoEn).getTime() : 0;
+      const tb = b.ultimoMensaje ? new Date(b.ultimoMensaje.enviadoEn).getTime() : 0;
+      return tb - ta;
+    });
+
+    res.json(data);
+  } catch (error) {
+    console.error("Error en GET /viajes/usuario/:id/chats", error);
+    res.status(500).json({ error: "Error al obtener los chats de las tribus" });
+  }
+});
+
 // GET /viajes/:userId  -> viajes donde es creador o miembro
 router.get("/:userId", async (req, res) => {
   const { userId } = req.params;
@@ -402,6 +469,142 @@ router.delete("/itinerario/:id", async (req, res) => {
   } catch (e) {
     console.error(e);
     res.status(500).json({ error: "Error al eliminar evento" });
+  }
+});
+
+// ---------------------------------------------------------------------
+// Chat grupal del viaje: todos los miembros del viaje comparten un único
+// chat (a diferencia del chat 1 a 1 de /chats, que es entre dos usuarios).
+// Reusa el modelo ChatMensaje que ya existía en el schema.
+// ---------------------------------------------------------------------
+
+// GET /viajes/:viajeId/chat -> historial de mensajes del chat grupal
+router.get("/:viajeId/chat", async (req, res) => {
+  const viajeId = Number(req.params.viajeId);
+  if (Number.isNaN(viajeId)) return res.status(400).json({ error: "viajeId inválido" });
+
+  try {
+    const mensajes = await prisma.chatMensaje.findMany({
+      where: { viajeId },
+      include: { usuario: { select: { id: true, nombre: true, apellido: true } } },
+      orderBy: { enviadoEn: "asc" },
+    });
+
+    res.json(
+      mensajes.map((m) => ({
+        id: String(m.id),
+        contenido: m.contenido,
+        usuarioId: String(m.usuarioId),
+        usuarioNombre: m.usuario ? `${m.usuario.nombre} ${m.usuario.apellido}` : "Usuario",
+        enviadoEn: m.enviadoEn,
+      }))
+    );
+  } catch (error) {
+    console.error("Error en GET /viajes/:viajeId/chat", error);
+    res.status(500).json({ error: "Error al obtener el chat del viaje" });
+  }
+});
+
+// POST /viajes/:viajeId/chat -> body { usuarioId, contenido }
+router.post("/:viajeId/chat", async (req, res) => {
+  const viajeId = Number(req.params.viajeId);
+  const { usuarioId, contenido } = req.body;
+
+  if (Number.isNaN(viajeId)) return res.status(400).json({ error: "viajeId inválido" });
+  if (!usuarioId || !contenido || !String(contenido).trim()) {
+    return res.status(400).json({ error: "Faltan usuarioId o contenido" });
+  }
+
+  try {
+    const esMiembro = await prisma.miembroViaje.findFirst({
+      where: { viajeId, usuarioId: Number(usuarioId) },
+      select: { id: true },
+    });
+    if (!esMiembro) return res.status(403).json({ error: "No sos miembro de este viaje" });
+
+    const nuevo = await prisma.chatMensaje.create({
+      data: {
+        viajeId,
+        usuarioId: Number(usuarioId),
+        contenido: String(contenido).trim(),
+      },
+      include: { usuario: { select: { id: true, nombre: true, apellido: true } } },
+    });
+
+    res.status(201).json({
+      id: String(nuevo.id),
+      contenido: nuevo.contenido,
+      usuarioId: String(nuevo.usuarioId),
+      usuarioNombre: nuevo.usuario ? `${nuevo.usuario.nombre} ${nuevo.usuario.apellido}` : "Usuario",
+      enviadoEn: nuevo.enviadoEn,
+    });
+  } catch (error) {
+    console.error("Error en POST /viajes/:viajeId/chat", error);
+    res.status(500).json({ error: "Error al enviar el mensaje" });
+  }
+});
+
+// POST /viajes/:viajeId/chat/leido -> body { usuarioId } marca el chat
+// grupal como leído hasta este momento, para ese usuario.
+router.post("/:viajeId/chat/leido", async (req, res) => {
+  const viajeId = Number(req.params.viajeId);
+  const { usuarioId } = req.body;
+
+  if (Number.isNaN(viajeId)) return res.status(400).json({ error: "viajeId inválido" });
+  if (!usuarioId) return res.status(400).json({ error: "Falta usuarioId" });
+
+  try {
+    const miembro = await prisma.miembroViaje.findFirst({
+      where: { viajeId, usuarioId: Number(usuarioId) },
+      select: { id: true },
+    });
+    if (!miembro) return res.status(403).json({ error: "No sos miembro de este viaje" });
+
+    await prisma.miembroViaje.update({
+      where: { id: miembro.id },
+      data: { chatLeidoEn: new Date() },
+    });
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("Error en POST /viajes/:viajeId/chat/leido", error);
+    res.status(500).json({ error: "Error al marcar como leído" });
+  }
+});
+
+// GET /viajes/:viajeId/chat/estado?usuarioId=X -> { noLeido: boolean }
+// Endpoint liviano para mostrar el puntito de "no leído" en el botón Chat
+// sin tener que traer todos los mensajes.
+router.get("/:viajeId/chat/estado", async (req, res) => {
+  const viajeId = Number(req.params.viajeId);
+  const usuarioId = Number(req.query.usuarioId);
+
+  if (Number.isNaN(viajeId) || Number.isNaN(usuarioId)) {
+    return res.status(400).json({ error: "viajeId o usuarioId inválido" });
+  }
+
+  try {
+    const miembro = await prisma.miembroViaje.findFirst({
+      where: { viajeId, usuarioId },
+      select: { chatLeidoEn: true },
+    });
+    if (!miembro) return res.status(403).json({ error: "No sos miembro de este viaje" });
+
+    const ultimo = await prisma.chatMensaje.findFirst({
+      where: { viajeId },
+      orderBy: { enviadoEn: "desc" },
+      select: { usuarioId: true, enviadoEn: true },
+    });
+
+    const noLeido =
+      !!ultimo &&
+      ultimo.usuarioId !== usuarioId &&
+      (!miembro.chatLeidoEn || new Date(ultimo.enviadoEn) > miembro.chatLeidoEn);
+
+    res.json({ noLeido });
+  } catch (error) {
+    console.error("Error en GET /viajes/:viajeId/chat/estado", error);
+    res.status(500).json({ error: "Error al consultar el estado del chat" });
   }
 });
 

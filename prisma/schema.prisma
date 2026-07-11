@@ -65,6 +65,11 @@ model MiembroViaje {
   rol        String   @default("miembro") // admin, miembro, invitado
   usuario    User  @relation(fields: [usuarioId], references: [id])
   viaje      Viaje    @relation(fields: [viajeId], references: [id])
+  // Última vez que este usuario abrió el chat grupal de este viaje. Se usa
+  // para calcular el punto de "no leído" (misma lógica que Chat.leidoPorAEn
+  // en el chat 1 a 1, pero acá alcanza con un solo campo porque cada fila
+  // de MiembroViaje ya es única por usuario+viaje).
+  chatLeidoEn DateTime?
 }
 
 model Tarea {
