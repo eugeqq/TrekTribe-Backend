@@ -1,27 +1,19 @@
 {
-  "extends": "expo/tsconfig.base",
   "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020"],
+    "module": "Node16",
+    "moduleResolution": "node16",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
     "strict": true,
     "noEmit": false,
     "outDir": "dist",
-    "module": "Node16",
-    "moduleResolution": "node16",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"]
     }
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    ".expo/types/**/*.ts",
-    "expo-env.d.ts"
-, "src/routes/todo.js", "src/routes/todo.js", "src/server.ts", "src/app.ts"  ]
-  ,
-  "exclude": [
-    "prisma/generated",
-    "prisma/prisma",
-    "node_modules"
-  ]
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "prisma/generated", "prisma/prisma"]
 }

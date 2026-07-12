@@ -3,14 +3,14 @@
 // La invitación sigue la misma lógica que agregar un miembro a un viaje
 // (POST /viajes/:id/miembros): se busca al usuario por email y, si existe,
 // se crea el vínculo directamente — sin un paso de aceptar/rechazar.
-import { PrismaClient } from "@prisma/client";
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import validator from "validator";
 import { AuthRequest, requireAuth } from "../middleware/auth";
+import { fullName, NOMBRE_APELLIDO_AVATAR_SELECT } from "../utils/format";
+import prisma from "../utils/prisma";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 router.use(requireAuth);
 
@@ -32,8 +32,8 @@ router.get("/usuario/:userId", async (req, res) => {
     const chats = await prisma.chat.findMany({
       where: { OR: [{ usuarioAId: userId }, { usuarioBId: userId }] },
       include: {
-        usuarioA: { select: { id: true, nombre: true, apellido: true, avatarUri: true } },
-        usuarioB: { select: { id: true, nombre: true, apellido: true, avatarUri: true } },
+        usuarioA: { select: NOMBRE_APELLIDO_AVATAR_SELECT },
+        usuarioB: { select: NOMBRE_APELLIDO_AVATAR_SELECT },
         mensajes: { orderBy: { enviadoEn: "desc" }, take: 1 },
       },
       orderBy: { creadoEn: "desc" },
@@ -56,7 +56,7 @@ router.get("/usuario/:userId", async (req, res) => {
         id: String(c.id),
         otroUsuario: {
           id: String(otro.id),
-          nombre: `${otro.nombre} ${otro.apellido}`,
+          nombre: fullName(otro),
           avatarUri: otro.avatarUri ?? null,
         },
         ultimoMensaje: ultimo
@@ -116,7 +116,7 @@ router.post("/invitar", invitarLimiter, async (req: AuthRequest, res) => {
       id: String(chat.id),
       otroUsuario: {
         id: String(otro.id),
-        nombre: `${otro.nombre} ${otro.apellido}`,
+        nombre: fullName(otro),
         avatarUri: otro.avatarUri ?? null,
       },
     });

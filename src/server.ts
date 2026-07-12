@@ -1,3 +1,5 @@
+import dotenv from "dotenv";
+dotenv.config();
 
 import os from "os";
 import app from "./app";

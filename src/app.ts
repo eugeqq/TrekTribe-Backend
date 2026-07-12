@@ -8,7 +8,6 @@ import gastosRouter from "./routes/gastos";
 import loginRouter from "./routes/login";
 import registerRouter from "./routes/register";
 import tareasRouter from "./routes/tareas";
-import todosRouter from "./routes/todo";
 import tribesRouter from "./routes/tribes";
 import userRouter from "./routes/user";
 import viajesRouter from "./routes/viajes";
@@ -27,7 +26,6 @@ app.use(express.json());
 app.use("/uploads", express.static(UPLOADS_DIR));
 
 app.use("/user", userRouter);
-app.use("/todo", todosRouter);
 app.use("/login", loginRouter);
 app.use("/register", registerRouter);
 app.use("/tribes", tribesRouter);

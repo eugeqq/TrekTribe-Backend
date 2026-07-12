@@ -1,31 +1,18 @@
-import { PrismaClient } from "@prisma/client";
 import { Router } from "express";
 import { AuthRequest, requireAuth } from "../middleware/auth";
+import { fullName, NOMBRE_APELLIDO_SELECT } from "../utils/format";
+import { esMiembroDelViaje } from "../utils/permissions";
+import prisma from "../utils/prisma";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 router.use(requireAuth);
-
-async function esMiembroDelViaje(viajeId: number, usuarioId: number): Promise<boolean> {
-  const viaje = await prisma.viaje.findUnique({ where: { id: viajeId }, select: { creadorId: true } });
-  if (!viaje) return false;
-  if (viaje.creadorId === usuarioId) return true;
-  const miembro = await prisma.miembroViaje.findFirst({
-    where: { viajeId, usuarioId },
-    select: { id: true },
-  });
-  return !!miembro;
-}
 
 /**
  * POST /gastos
  * body: { monto, categoria, descripcion, pagadoPorId, viajeId, participants? }
  */
 router.post("/", async (req, res) => {
-  console.log("🟢 POST /gastos llamado");
-  console.log("Body recibido:", req.body);
-
   try {
     const { monto, categoria, descripcion, pagadoPorId, viajeId, participantes } = req.body;
 
@@ -51,14 +38,9 @@ router.post("/", async (req, res) => {
         },
       },
       include: {
-        pagadoPor: { select: { id: true, nombre: true, apellido: true } },
-        participantes: { select: { id: true, nombre: true, apellido: true } },
+        pagadoPor: { select: NOMBRE_APELLIDO_SELECT },
+        participantes: { select: NOMBRE_APELLIDO_SELECT },
       },
-    });
-    console.log("✅ Gasto creado correctamente:", {
-      id: nuevo.id,
-      descripcion: nuevo.descripcion,
-      participantes: nuevo.participantes.map((p) => p.id),
     });
 
     res.status(201).json({
@@ -66,7 +48,7 @@ router.post("/", async (req, res) => {
       title: nuevo.descripcion ?? "Gasto",
       amount: Number(nuevo.monto),
       payerId: String(nuevo.pagadoPorId),
-      payerName: nuevo.pagadoPor ? `${nuevo.pagadoPor.nombre} ${nuevo.pagadoPor.apellido}` : null,
+      payerName: fullName(nuevo.pagadoPor),
       createdAt: nuevo.creadoEn,
       category: nuevo.categoria ?? null,
       participants: nuevo.participantes.map((p) => String(p.id)),
@@ -105,8 +87,8 @@ router.put("/:id", async (req, res) => {
         }),
       },
       include: {
-        pagadoPor: { select: { id: true, nombre: true, apellido: true } },
-        participantes: { select: { id: true, nombre: true, apellido: true } },
+        pagadoPor: { select: NOMBRE_APELLIDO_SELECT },
+        participantes: { select: NOMBRE_APELLIDO_SELECT },
       },
     });
 
@@ -115,7 +97,7 @@ router.put("/:id", async (req, res) => {
       title: updated.descripcion ?? "Gasto",
       amount: Number(updated.monto),
       payerId: String(updated.pagadoPorId),
-      payerName: updated.pagadoPor ? `${updated.pagadoPor.nombre} ${updated.pagadoPor.apellido}` : null,
+      payerName: fullName(updated.pagadoPor),
       createdAt: updated.creadoEn,
       category: updated.categoria ?? null,
       participants: updated.participantes.map((p) => String(p.id)),

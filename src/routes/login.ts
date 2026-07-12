@@ -1,10 +1,10 @@
-import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import jwt from "jsonwebtoken";
 import validator from "validator";
 import winston from "winston";
+import prisma from "../utils/prisma";
 
 if (!process.env.JWT_SECRET) {
   throw new Error("JWT_SECRET no está definido en las variables de entorno. Configúralo para seguridad.");
@@ -29,7 +29,6 @@ const tokenBlacklist = new Set<string>();
 
 
 const router = Router();
-const prisma = new PrismaClient();
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos

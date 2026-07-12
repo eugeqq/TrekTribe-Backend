@@ -1,11 +1,10 @@
-import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
 import validator from "validator";
+import prisma from "../utils/prisma";
 
 const router = Router();
-const prisma = new PrismaClient();
 
 const registerLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos

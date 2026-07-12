@@ -1,20 +1,9 @@
-import { PrismaClient } from "@prisma/client";
 import { Router } from "express";
 import { AuthRequest, requireAuth } from "../middleware/auth";
+import { esMiembroDelViaje } from "../utils/permissions";
+import prisma from "../utils/prisma";
 
 const router = Router();
-const prisma = new PrismaClient();
-
-async function esMiembroDelViaje(viajeId: number, usuarioId: number): Promise<boolean> {
-  const viaje = await prisma.viaje.findUnique({ where: { id: viajeId }, select: { creadorId: true } });
-  if (!viaje) return false;
-  if (viaje.creadorId === usuarioId) return true;
-  const miembro = await prisma.miembroViaje.findFirst({
-    where: { viajeId, usuarioId },
-    select: { id: true },
-  });
-  return !!miembro;
-}
 
 // ✅ GET /viajes/:viajeId/tareas → listar tareas del viaje
 router.get("/viajes/:viajeId/tareas", requireAuth, async (req: AuthRequest, res) => {

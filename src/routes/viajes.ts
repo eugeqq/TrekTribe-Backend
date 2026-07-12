@@ -1,27 +1,14 @@
 // routes/viajes.ts
-import { PrismaClient } from "@prisma/client";
 import { Router } from "express";
 import { AuthRequest, requireAuth } from "../middleware/auth";
+import { fullName, NOMBRE_APELLIDO_AVATAR_SELECT, NOMBRE_APELLIDO_SELECT } from "../utils/format";
+import { esMiembroDelViaje } from "../utils/permissions";
+import prisma from "../utils/prisma";
 
 const router = Router();
-const prisma = new PrismaClient();
 const getBaseURL = () => process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
 
 router.use(requireAuth);
-
-// Un usuario puede ver/tocar los datos de un viaje si es su creador o
-// figura como miembro (MiembroViaje). Se usa antes de devolver
-// participantes, gastos, settlements, detalle o itinerario.
-async function esMiembroDelViaje(viajeId: number, usuarioId: number): Promise<boolean> {
-  const viaje = await prisma.viaje.findUnique({ where: { id: viajeId }, select: { creadorId: true } });
-  if (!viaje) return false;
-  if (viaje.creadorId === usuarioId) return true;
-  const miembro = await prisma.miembroViaje.findFirst({
-    where: { viajeId, usuarioId },
-    select: { id: true },
-  });
-  return !!miembro;
-}
 
 router.get("/usuario/:id", async (req, res) => {
   const { id } = req.params;
@@ -43,7 +30,7 @@ router.get("/usuario/:id", async (req, res) => {
         miembros: {
           include: {
             usuario: {
-              select: { id: true, nombre: true, apellido: true },
+              select: NOMBRE_APELLIDO_SELECT,
             },
           },
         },
@@ -60,7 +47,7 @@ router.get("/usuario/:id", async (req, res) => {
       imagen: v.imagen,
       imagenUrl: v.imagen ? v.imagen : null,
       miembrosCant: v.miembros.length,
-      miembrosNombres: v.miembros.map((m) => `${m.usuario.nombre} ${m.usuario.apellido}`),
+      miembrosNombres: v.miembros.map((m) => fullName(m.usuario)),
     }));
 
     res.json(data);
@@ -91,7 +78,7 @@ router.get("/usuario/:id/chats", async (req, res) => {
             mensajes: {
               orderBy: { enviadoEn: "desc" },
               take: 1,
-              include: { usuario: { select: { id: true, nombre: true, apellido: true } } },
+              include: { usuario: { select: NOMBRE_APELLIDO_SELECT } },
             },
           },
         },
@@ -116,7 +103,7 @@ router.get("/usuario/:id/chats", async (req, res) => {
               contenido: ultimo.contenido,
               enviadoEn: ultimo.enviadoEn,
               usuarioId: String(ultimo.usuarioId),
-              usuarioNombre: ultimo.usuario ? `${ultimo.usuario.nombre} ${ultimo.usuario.apellido}` : "Usuario",
+              usuarioNombre: fullName(ultimo.usuario) ?? "Usuario",
             }
           : null,
         noLeido,
@@ -165,7 +152,7 @@ router.get("/:userId", async (req, res) => {
       fechaInicio: v.fechaInicio,
       fechaFin: v.fechaFin,
       miembrosCant: v.miembros.length,
-      miembrosNombres: v.miembros.map((m) => `${m.usuario.nombre} ${m.usuario.apellido}`),
+      miembrosNombres: v.miembros.map((m) => fullName(m.usuario)),
     }));
 
     res.json(viajesFormateados);
@@ -186,13 +173,13 @@ router.get("/:viajeId/participantes", async (req: AuthRequest, res) => {
     const miembros = await prisma.miembroViaje.findMany({
       where: { viajeId: Number(viajeId) },
       include: {
-        usuario: { select: { id: true, nombre: true, apellido: true, avatarUri: true } },
+        usuario: { select: NOMBRE_APELLIDO_AVATAR_SELECT },
       },
     });
 
     const participantes = miembros.map((m) => ({
       id: String(m.usuario.id),
-      name: `${m.usuario.nombre} ${m.usuario.apellido}`,
+      name: fullName(m.usuario),
       avatar: m.usuario.avatarUri ?? null,
       rol: m.rol,
       miembroId: m.id,
@@ -217,8 +204,8 @@ router.get("/:viajeId/gastos", async (req: AuthRequest, res) => {
     const gastos = await prisma.gasto.findMany({
       where: { viajeId: Number(viajeId) },
       include: {
-        pagadoPor: { select: { id: true, nombre: true, apellido: true } },
-        participantes: { select: { id: true, nombre: true, apellido: true } },
+        pagadoPor: { select: NOMBRE_APELLIDO_SELECT },
+        participantes: { select: NOMBRE_APELLIDO_SELECT },
       },
       orderBy: { creadoEn: "desc" },
     });
@@ -229,7 +216,7 @@ router.get("/:viajeId/gastos", async (req: AuthRequest, res) => {
       description: g.descripcion ?? "",
       amount: Number(g.monto),
       payerId: String(g.pagadoPorId),
-      payerName: g.pagadoPor ? `${g.pagadoPor.nombre} ${g.pagadoPor.apellido}` : null,
+      payerName: fullName(g.pagadoPor),
       createdAt: g.creadoEn,
       category: g.categoria ?? null,
       participants: g.participantes.map((p) => String(p.id)),
@@ -253,8 +240,8 @@ router.get("/:viajeId/settlements", async (req: AuthRequest, res) => {
     const settlements = await prisma.settlement.findMany({
       where: { viajeId: Number(viajeId) },
       include: {
-        pagador: { select: { id: true, nombre: true, apellido: true } },
-        receptor: { select: { id: true, nombre: true, apellido: true } },
+        pagador: { select: NOMBRE_APELLIDO_SELECT },
+        receptor: { select: NOMBRE_APELLIDO_SELECT },
       },
       orderBy: { creadoEn: "desc" },
     });
@@ -263,9 +250,9 @@ router.get("/:viajeId/settlements", async (req: AuthRequest, res) => {
       id: String(s.id),
       monto: Number(s.monto),
       pagadorId: String(s.pagadorId),
-      pagadorNombre: s.pagador ? `${s.pagador.nombre} ${s.pagador.apellido}` : null,
+      pagadorNombre: fullName(s.pagador),
       receptorId: String(s.receptorId),
-      receptorNombre: s.receptor ? `${s.receptor.nombre} ${s.receptor.apellido}` : null,
+      receptorNombre: fullName(s.receptor),
       createdAt: s.creadoEn,
     }));
 
@@ -300,8 +287,8 @@ router.post("/:viajeId/settlements", async (req, res) => {
         viajeId: Number(viajeId),
       },
       include: {
-        pagador: { select: { id: true, nombre: true, apellido: true } },
-        receptor: { select: { id: true, nombre: true, apellido: true } },
+        pagador: { select: NOMBRE_APELLIDO_SELECT },
+        receptor: { select: NOMBRE_APELLIDO_SELECT },
       },
     });
 
@@ -309,9 +296,9 @@ router.post("/:viajeId/settlements", async (req, res) => {
       id: String(nuevo.id),
       monto: Number(nuevo.monto),
       pagadorId: String(nuevo.pagadorId),
-      pagadorNombre: `${nuevo.pagador.nombre} ${nuevo.pagador.apellido}`,
+      pagadorNombre: fullName(nuevo.pagador),
       receptorId: String(nuevo.receptorId),
-      receptorNombre: `${nuevo.receptor.nombre} ${nuevo.receptor.apellido}`,
+      receptorNombre: fullName(nuevo.receptor),
       createdAt: nuevo.creadoEn,
     });
   } catch (error) {
@@ -366,22 +353,9 @@ router.post("/:id/miembros", async (req: AuthRequest, res) => {
     const currentUserId = req.userId!;
     const { usuarioId, email, rol } = req.body;
 
-    const viaje = await prisma.viaje.findUnique({
-      where: { id: viajeId },
-      select: {
-        id: true,
-        creadorId: true,
-        miembros: {
-          where: { usuarioId: currentUserId },
-          select: { rol: true },
-        },
-      },
-    });
-    if (!viaje) return res.status(404).json({ error: "Viaje no encontrado" });
-
-    const esCreador = viaje.creadorId === currentUserId;
-    const esAdmin = viaje.miembros.some((m) => m.rol === "admin");
-    if (!esCreador && !esAdmin) return res.status(403).json({ error: "No autorizado" });
+    if (!(await esMiembroDelViaje(viajeId, currentUserId))) {
+      return res.status(403).json({ error: "No sos miembro de este viaje" });
+    }
 
     let user = null as any;
     if (usuarioId) {
@@ -411,7 +385,7 @@ router.post("/:id/miembros", async (req: AuthRequest, res) => {
           select: {
             id: true,
             rol: true,
-            usuario: { select: { id: true, nombre: true, apellido: true, avatarUri: true } },
+            usuario: { select: NOMBRE_APELLIDO_AVATAR_SELECT },
           },
         },
         _count: { select: { miembros: true } },
@@ -434,8 +408,8 @@ router.post("/:id/miembros", async (req: AuthRequest, res) => {
 });
 
 // DELETE /viajes/:viajeId/miembros/:usuarioId -> saca a alguien del viaje.
-// Lo puede hacer el creador/un admin del viaje, o el propio usuario (para
-// abandonar el viaje).
+// Lo puede hacer cualquier miembro del viaje (incluido uno mismo, para
+// abandonarlo).
 router.delete("/:viajeId/miembros/:usuarioId", async (req: AuthRequest, res) => {
   try {
     const viajeId = Number(req.params.viajeId);
@@ -445,20 +419,8 @@ router.delete("/:viajeId/miembros/:usuarioId", async (req: AuthRequest, res) => 
     }
 
     const currentUserId = req.userId!;
-    const viaje = await prisma.viaje.findUnique({
-      where: { id: viajeId },
-      select: {
-        creadorId: true,
-        miembros: { where: { usuarioId: currentUserId }, select: { rol: true } },
-      },
-    });
-    if (!viaje) return res.status(404).json({ error: "Viaje no encontrado" });
-
-    const esUnoMismo = currentUserId === usuarioId;
-    const esCreador = viaje.creadorId === currentUserId;
-    const esAdmin = viaje.miembros.some((m) => m.rol === "admin");
-    if (!esUnoMismo && !esCreador && !esAdmin) {
-      return res.status(403).json({ error: "No autorizado" });
+    if (!(await esMiembroDelViaje(viajeId, currentUserId))) {
+      return res.status(403).json({ error: "No sos miembro de este viaje" });
     }
 
     const miembro = await prisma.miembroViaje.findFirst({
@@ -581,7 +543,7 @@ router.get("/:viajeId/chat", async (req, res) => {
   try {
     const mensajes = await prisma.chatMensaje.findMany({
       where: { viajeId },
-      include: { usuario: { select: { id: true, nombre: true, apellido: true } } },
+      include: { usuario: { select: NOMBRE_APELLIDO_SELECT } },
       orderBy: { enviadoEn: "asc" },
     });
 
@@ -590,7 +552,7 @@ router.get("/:viajeId/chat", async (req, res) => {
         id: String(m.id),
         contenido: m.contenido,
         usuarioId: String(m.usuarioId),
-        usuarioNombre: m.usuario ? `${m.usuario.nombre} ${m.usuario.apellido}` : "Usuario",
+        usuarioNombre: fullName(m.usuario) ?? "Usuario",
         enviadoEn: m.enviadoEn,
       }))
     );
@@ -623,14 +585,14 @@ router.post("/:viajeId/chat", async (req, res) => {
         usuarioId: Number(usuarioId),
         contenido: String(contenido).trim(),
       },
-      include: { usuario: { select: { id: true, nombre: true, apellido: true } } },
+      include: { usuario: { select: NOMBRE_APELLIDO_SELECT } },
     });
 
     res.status(201).json({
       id: String(nuevo.id),
       contenido: nuevo.contenido,
       usuarioId: String(nuevo.usuarioId),
-      usuarioNombre: nuevo.usuario ? `${nuevo.usuario.nombre} ${nuevo.usuario.apellido}` : "Usuario",
+      usuarioNombre: fullName(nuevo.usuario) ?? "Usuario",
       enviadoEn: nuevo.enviadoEn,
     });
   } catch (error) {

@@ -1,11 +1,10 @@
-import { PrismaClient } from "@prisma/client";
 import express from "express";
 import { AuthRequest, requireAuth } from "../middleware/auth";
 import upload from "../middleware/upload";
-import cloudinary from "../utils/cloudinary";
+import { uploadBuffer } from "../utils/cloudinary";
+import prisma from "../utils/prisma";
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 router.use(requireAuth);
 
@@ -29,22 +28,7 @@ router.post("/", upload.single("imagen"), async (req: AuthRequest, res) => {
     let imagenUrl = null as string | null;
 
     if ((req as any).file) {
-      const uploadResult: any = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          {
-            asset_folder: "trektribe/tribes",
-            resource_type: "image",
-          },
-          (error: any, result: any) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        );
-        stream.end((req as any).file.buffer);
-      });
-      
-
-      imagenUrl = uploadResult.secure_url;
+      imagenUrl = await uploadBuffer((req as any).file.buffer, "trektribe/tribes");
     }
 
     const nuevaTribu = await prisma.viaje.create({
