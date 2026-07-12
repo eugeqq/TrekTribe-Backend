@@ -1,8 +1,22 @@
 import { PrismaClient } from "@prisma/client";
 import { Router } from "express";
+import { AuthRequest, requireAuth } from "../middleware/auth";
 
 const router = Router();
 const prisma = new PrismaClient();
+
+router.use(requireAuth);
+
+async function esMiembroDelViaje(viajeId: number, usuarioId: number): Promise<boolean> {
+  const viaje = await prisma.viaje.findUnique({ where: { id: viajeId }, select: { creadorId: true } });
+  if (!viaje) return false;
+  if (viaje.creadorId === usuarioId) return true;
+  const miembro = await prisma.miembroViaje.findFirst({
+    where: { viajeId, usuarioId },
+    select: { id: true },
+  });
+  return !!miembro;
+}
 
 /**
  * POST /gastos
@@ -17,6 +31,12 @@ router.post("/", async (req, res) => {
 
     if (monto == null || !pagadoPorId || !viajeId) {
       return res.status(400).json({ error: "Faltan datos obligatorios" });
+    }
+    if (!Number.isFinite(Number(monto)) || Number(monto) <= 0) {
+      return res.status(400).json({ error: "El monto debe ser un número mayor a 0" });
+    }
+    if (!Array.isArray(participantes) || participantes.length === 0) {
+      return res.status(400).json({ error: "Faltan participantes" });
     }
 
     const nuevo = await prisma.gasto.create({
@@ -65,6 +85,13 @@ router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const { monto, categoria, descripcion, pagadoPorId, participantes } = req.body;
 
+  if (monto != null && (!Number.isFinite(Number(monto)) || Number(monto) <= 0)) {
+    return res.status(400).json({ error: "El monto debe ser un número mayor a 0" });
+  }
+  if (participantes != null && !Array.isArray(participantes)) {
+    return res.status(400).json({ error: "participantes debe ser una lista" });
+  }
+
   try {
     const updated = await prisma.gasto.update({
       where: { id: Number(id) },
@@ -73,9 +100,9 @@ router.put("/:id", async (req, res) => {
         categoria: categoria ?? undefined,
         descripcion: descripcion ?? undefined,
         pagadoPorId: pagadoPorId != null ? Number(pagadoPorId) : undefined,
-        participantes: {
-          set: participantes.map((id: any) => ({ id: Number(id) })),
-        },
+        ...(participantes != null && {
+          participantes: { set: participantes.map((id: any) => ({ id: Number(id) })) },
+        }),
       },
       include: {
         pagadoPor: { select: { id: true, nombre: true, apellido: true } },
@@ -102,9 +129,15 @@ router.put("/:id", async (req, res) => {
 /**
  * DELETE /gastos/:id
  */
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", async (req: AuthRequest, res) => {
   const { id } = req.params;
   try {
+    const gasto = await prisma.gasto.findUnique({ where: { id: Number(id) }, select: { viajeId: true } });
+    if (!gasto) return res.status(404).json({ error: "Gasto no encontrado" });
+    if (!(await esMiembroDelViaje(gasto.viajeId, req.userId!))) {
+      return res.status(403).json({ error: "No sos miembro de este viaje" });
+    }
+
     await prisma.gasto.delete({ where: { id: Number(id) } });
     res.json({ ok: true });
   } catch (error) {

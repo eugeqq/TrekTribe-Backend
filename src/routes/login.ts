@@ -80,7 +80,8 @@ router.post("/", loginLimiter, async (req, res) => {
 
 // Validar token
 router.post("/validate-session", async (req, res) => {
-  const { token } = req.body;
+  const authHeader = req.headers.authorization;
+  const token = authHeader && authHeader.startsWith("Bearer ") ? authHeader.slice(7) : req.body?.token;
 
   if (!token) {
     return res.status(400).json({ valid: false, error: "Token requerido" });

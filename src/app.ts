@@ -45,10 +45,10 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
   console.error(err);
   const status = err?.status || 500;
   const message = err?.message || 'Internal Server Error';
-  if (process.env.NODE_ENV === 'production') {
-    res.status(status).json({ error: message });
-  } else {
+  if (process.env.NODE_ENV === 'development') {
     res.status(status).json({ error: message, stack: err?.stack });
+  } else {
+    res.status(status).json({ error: message });
   }
 });
 

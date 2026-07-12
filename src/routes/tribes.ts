@@ -1,20 +1,21 @@
 import { PrismaClient } from "@prisma/client";
 import express from "express";
+import { AuthRequest, requireAuth } from "../middleware/auth";
 import upload from "../middleware/upload";
 import cloudinary from "../utils/cloudinary";
 
 const router = express.Router();
 const prisma = new PrismaClient();
 
-router.post("/", upload.single("imagen"), async (req, res) => {
+router.use(requireAuth);
+
+router.post("/", upload.single("imagen"), async (req: AuthRequest, res) => {
   try {
-    const { nombre, descripcion, fechaInicio, fechaFin, ubicacion, creadorId } = req.body;
+    const { nombre, descripcion, fechaInicio, fechaFin, ubicacion } = req.body;
+    const creadorId = req.userId!;
 
     if (!nombre || !ubicacion) {
       return res.status(400).json({ error: "Complete los campos requeridos" });
-    }
-    if (!creadorId || Number.isNaN(Number(creadorId))) {
-      return res.status(400).json({ error: "creadorId inválido" });
     }
 
     const parseFecha = (f: string | undefined) => {

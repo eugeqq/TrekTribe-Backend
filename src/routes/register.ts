@@ -1,12 +1,21 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcrypt";
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import validator from "validator";
 
 const router = Router();
 const prisma = new PrismaClient();
 
-router.post("/", async (req, res) => {
+const registerLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 10, // Máximo 10 registros por IP
+  message: "Demasiados intentos de registro. Inténtalo de nuevo en 15 minutos.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+router.post("/", registerLimiter, async (req, res) => {
   const { nombre, apellido, email, password } = req.body;
 
   try {
@@ -32,7 +41,7 @@ router.post("/", async (req, res) => {
       data: {
         nombre,
         apellido,
-        email,
+        email: normalizedEmail,
         password: hashedPassword,
       },
     });

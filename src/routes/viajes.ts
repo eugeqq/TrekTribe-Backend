@@ -1,10 +1,27 @@
 // routes/viajes.ts
 import { PrismaClient } from "@prisma/client";
 import { Router } from "express";
+import { AuthRequest, requireAuth } from "../middleware/auth";
 
 const router = Router();
 const prisma = new PrismaClient();
 const getBaseURL = () => process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+
+router.use(requireAuth);
+
+// Un usuario puede ver/tocar los datos de un viaje si es su creador o
+// figura como miembro (MiembroViaje). Se usa antes de devolver
+// participantes, gastos, settlements, detalle o itinerario.
+async function esMiembroDelViaje(viajeId: number, usuarioId: number): Promise<boolean> {
+  const viaje = await prisma.viaje.findUnique({ where: { id: viajeId }, select: { creadorId: true } });
+  if (!viaje) return false;
+  if (viaje.creadorId === usuarioId) return true;
+  const miembro = await prisma.miembroViaje.findFirst({
+    where: { viajeId, usuarioId },
+    select: { id: true },
+  });
+  return !!miembro;
+}
 
 router.get("/usuario/:id", async (req, res) => {
   const { id } = req.params;
@@ -159,9 +176,13 @@ router.get("/:userId", async (req, res) => {
 });
 
 
-router.get("/:viajeId/participantes", async (req, res) => {
+router.get("/:viajeId/participantes", async (req: AuthRequest, res) => {
   const { viajeId } = req.params;
   try {
+    if (!(await esMiembroDelViaje(Number(viajeId), req.userId!))) {
+      return res.status(403).json({ error: "No sos miembro de este viaje" });
+    }
+
     const miembros = await prisma.miembroViaje.findMany({
       where: { viajeId: Number(viajeId) },
       include: {
@@ -186,9 +207,13 @@ router.get("/:viajeId/participantes", async (req, res) => {
 });
 
 // GET /viajes/:viajeId/gastos -> gastos pertenecientes al viaje
-router.get("/:viajeId/gastos", async (req, res) => {
+router.get("/:viajeId/gastos", async (req: AuthRequest, res) => {
   const { viajeId } = req.params;
   try {
+    if (!(await esMiembroDelViaje(Number(viajeId), req.userId!))) {
+      return res.status(403).json({ error: "No sos miembro de este viaje" });
+    }
+
     const gastos = await prisma.gasto.findMany({
       where: { viajeId: Number(viajeId) },
       include: {
@@ -218,9 +243,13 @@ router.get("/:viajeId/gastos", async (req, res) => {
 });
 
 // GET /viajes/:viajeId/settlements -> pagos que saldan deudas dentro del viaje
-router.get("/:viajeId/settlements", async (req, res) => {
+router.get("/:viajeId/settlements", async (req: AuthRequest, res) => {
   const { viajeId } = req.params;
   try {
+    if (!(await esMiembroDelViaje(Number(viajeId), req.userId!))) {
+      return res.status(403).json({ error: "No sos miembro de este viaje" });
+    }
+
     const settlements = await prisma.settlement.findMany({
       where: { viajeId: Number(viajeId) },
       include: {
@@ -291,10 +320,14 @@ router.post("/:viajeId/settlements", async (req, res) => {
   }
 });
 
-router.get("/detalle/:id", async (req, res) => {
+router.get("/detalle/:id", async (req: AuthRequest, res) => {
   const { id } = req.params;
 
   try {
+    if (!(await esMiembroDelViaje(Number(id), req.userId!))) {
+      return res.status(403).json({ error: "No sos miembro de este viaje" });
+    }
+
     const viaje = await prisma.viaje.findUnique({
       where: { id: parseInt(id) },
       include: {
@@ -325,12 +358,13 @@ router.get("/detalle/:id", async (req, res) => {
 });
 
 
-router.post("/:id/miembros", async (req, res) => {
+router.post("/:id/miembros", async (req: AuthRequest, res) => {
   try {
     const viajeId = Number(req.params.id);
     if (Number.isNaN(viajeId)) return res.status(400).json({ error: "id inválido" });
 
-    const { currentUserId, usuarioId, email, rol } = req.body;
+    const currentUserId = req.userId!;
+    const { usuarioId, email, rol } = req.body;
 
     const viaje = await prisma.viaje.findUnique({
       where: { id: viajeId },
@@ -338,14 +372,14 @@ router.post("/:id/miembros", async (req, res) => {
         id: true,
         creadorId: true,
         miembros: {
-          where: { usuarioId: Number(currentUserId) },
+          where: { usuarioId: currentUserId },
           select: { rol: true },
         },
       },
     });
     if (!viaje) return res.status(404).json({ error: "Viaje no encontrado" });
 
-    const esCreador = viaje.creadorId === Number(currentUserId);
+    const esCreador = viaje.creadorId === currentUserId;
     const esAdmin = viaje.miembros.some((m) => m.rol === "admin");
     if (!esCreador && !esAdmin) return res.status(403).json({ error: "No autorizado" });
 
@@ -399,10 +433,55 @@ router.post("/:id/miembros", async (req, res) => {
   }
 });
 
-router.get("/:viajeId/itinerario", async (req, res) => {
+// DELETE /viajes/:viajeId/miembros/:usuarioId -> saca a alguien del viaje.
+// Lo puede hacer el creador/un admin del viaje, o el propio usuario (para
+// abandonar el viaje).
+router.delete("/:viajeId/miembros/:usuarioId", async (req: AuthRequest, res) => {
+  try {
+    const viajeId = Number(req.params.viajeId);
+    const usuarioId = Number(req.params.usuarioId);
+    if (Number.isNaN(viajeId) || Number.isNaN(usuarioId)) {
+      return res.status(400).json({ error: "id inválido" });
+    }
+
+    const currentUserId = req.userId!;
+    const viaje = await prisma.viaje.findUnique({
+      where: { id: viajeId },
+      select: {
+        creadorId: true,
+        miembros: { where: { usuarioId: currentUserId }, select: { rol: true } },
+      },
+    });
+    if (!viaje) return res.status(404).json({ error: "Viaje no encontrado" });
+
+    const esUnoMismo = currentUserId === usuarioId;
+    const esCreador = viaje.creadorId === currentUserId;
+    const esAdmin = viaje.miembros.some((m) => m.rol === "admin");
+    if (!esUnoMismo && !esCreador && !esAdmin) {
+      return res.status(403).json({ error: "No autorizado" });
+    }
+
+    const miembro = await prisma.miembroViaje.findFirst({
+      where: { viajeId, usuarioId },
+      select: { id: true },
+    });
+    if (!miembro) return res.status(404).json({ error: "Ese usuario no es miembro del viaje" });
+
+    await prisma.miembroViaje.delete({ where: { id: miembro.id } });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error("[DELETE /viajes/:viajeId/miembros/:usuarioId] Error:", e);
+    res.status(500).json({ error: "Error al quitar miembro" });
+  }
+});
+
+router.get("/:viajeId/itinerario", async (req: AuthRequest, res) => {
   try {
     const viajeId = Number(req.params.viajeId);
     if (Number.isNaN(viajeId)) return res.status(400).json({ error: "viajeId inválido" });
+    if (!(await esMiembroDelViaje(viajeId, req.userId!))) {
+      return res.status(403).json({ error: "No sos miembro de este viaje" });
+    }
 
     const rows = await prisma.itinerarioEvento.findMany({
       where: { viajeId },
@@ -415,10 +494,14 @@ router.get("/:viajeId/itinerario", async (req, res) => {
   }
 });
 
-// POST /viajes/:viajeId/itinerario 
-router.post("/:viajeId/itinerario", async (req, res) => {
+// POST /viajes/:viajeId/itinerario
+router.post("/:viajeId/itinerario", async (req: AuthRequest, res) => {
   try {
     const viajeId = Number(req.params.viajeId);
+    if (!(await esMiembroDelViaje(viajeId, req.userId!))) {
+      return res.status(403).json({ error: "No sos miembro de este viaje" });
+    }
+
     const { titulo, descripcion, fechaHora, ubicacion } = req.body;
     if (!titulo || !fechaHora) return res.status(400).json({ error: "Falta titulo o fechaHora" });
 
@@ -439,9 +522,15 @@ router.post("/:viajeId/itinerario", async (req, res) => {
 });
 
 // PUT /itinerario/:id
-router.put("/itinerario/:id", async (req, res) => {
+router.put("/itinerario/:id", async (req: AuthRequest, res) => {
   try {
     const id = Number(req.params.id);
+    const existente = await prisma.itinerarioEvento.findUnique({ where: { id }, select: { viajeId: true } });
+    if (!existente) return res.status(404).json({ error: "Evento no encontrado" });
+    if (!(await esMiembroDelViaje(existente.viajeId, req.userId!))) {
+      return res.status(403).json({ error: "No sos miembro de este viaje" });
+    }
+
     const { titulo, descripcion, fechaHora, ubicacion } = req.body;
 
     const row = await prisma.itinerarioEvento.update({
@@ -461,9 +550,15 @@ router.put("/itinerario/:id", async (req, res) => {
 });
 
 // DELETE /itinerario/:id
-router.delete("/itinerario/:id", async (req, res) => {
+router.delete("/itinerario/:id", async (req: AuthRequest, res) => {
   try {
     const id = Number(req.params.id);
+    const existente = await prisma.itinerarioEvento.findUnique({ where: { id }, select: { viajeId: true } });
+    if (!existente) return res.status(404).json({ error: "Evento no encontrado" });
+    if (!(await esMiembroDelViaje(existente.viajeId, req.userId!))) {
+      return res.status(403).json({ error: "No sos miembro de este viaje" });
+    }
+
     await prisma.itinerarioEvento.delete({ where: { id } });
     res.status(204).end();
   } catch (e) {

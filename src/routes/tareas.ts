@@ -1,13 +1,29 @@
 import { PrismaClient } from "@prisma/client";
 import { Router } from "express";
+import { AuthRequest, requireAuth } from "../middleware/auth";
 
 const router = Router();
 const prisma = new PrismaClient();
 
+async function esMiembroDelViaje(viajeId: number, usuarioId: number): Promise<boolean> {
+  const viaje = await prisma.viaje.findUnique({ where: { id: viajeId }, select: { creadorId: true } });
+  if (!viaje) return false;
+  if (viaje.creadorId === usuarioId) return true;
+  const miembro = await prisma.miembroViaje.findFirst({
+    where: { viajeId, usuarioId },
+    select: { id: true },
+  });
+  return !!miembro;
+}
+
 // ✅ GET /viajes/:viajeId/tareas → listar tareas del viaje
-router.get("/viajes/:viajeId/tareas", async (req, res) => {
+router.get("/viajes/:viajeId/tareas", requireAuth, async (req: AuthRequest, res) => {
   const { viajeId } = req.params;
   try {
+    if (!(await esMiembroDelViaje(Number(viajeId), req.userId!))) {
+      return res.status(403).json({ error: "No sos miembro de este viaje" });
+    }
+
     const tareas = await prisma.tarea.findMany({
       where: { viajeId: Number(viajeId) },
       include: { responsable: true },
@@ -21,7 +37,7 @@ router.get("/viajes/:viajeId/tareas", async (req, res) => {
 });
 
 // ✅ POST /viajes/:viajeId/tareas → crear tarea nueva
-router.post("/viajes/:viajeId/tareas", async (req, res) => {
+router.post("/viajes/:viajeId/tareas", requireAuth, async (req: AuthRequest, res) => {
   const { viajeId } = req.params;
   const { titulo, descripcion, estado, responsableId } = req.body;
 
@@ -30,6 +46,10 @@ router.post("/viajes/:viajeId/tareas", async (req, res) => {
   }
 
   try {
+    if (!(await esMiembroDelViaje(Number(viajeId), req.userId!))) {
+      return res.status(403).json({ error: "No sos miembro de este viaje" });
+    }
+
     const tarea = await prisma.tarea.create({
       data: {
         titulo,
@@ -47,11 +67,17 @@ router.post("/viajes/:viajeId/tareas", async (req, res) => {
 });
 
 // ✅ PUT /tareas/:id → editar tarea
-router.put("/tareas/:id", async (req, res) => {
+router.put("/tareas/:id", requireAuth, async (req: AuthRequest, res) => {
   const { id } = req.params;
   const { titulo, descripcion, estado, responsableId } = req.body;
 
   try {
+    const existente = await prisma.tarea.findUnique({ where: { id: Number(id) }, select: { viajeId: true } });
+    if (!existente) return res.status(404).json({ error: "Tarea no encontrada" });
+    if (!(await esMiembroDelViaje(existente.viajeId, req.userId!))) {
+      return res.status(403).json({ error: "No sos miembro de este viaje" });
+    }
+
     const tarea = await prisma.tarea.update({
       where: { id: Number(id) },
       data: {
@@ -69,11 +95,15 @@ router.put("/tareas/:id", async (req, res) => {
 });
 
 // ✅ DELETE /tareas/:id → eliminar tarea
-router.delete("/tareas/:id", async (req, res) => {
-  console.log('los parametros recibidos son', req.params);
+router.delete("/tareas/:id", requireAuth, async (req: AuthRequest, res) => {
   const { id } = req.params;
-  console.log('id', id);
   try {
+    const existente = await prisma.tarea.findUnique({ where: { id: Number(id) }, select: { viajeId: true } });
+    if (!existente) return res.status(404).json({ error: "Tarea no encontrada" });
+    if (!(await esMiembroDelViaje(existente.viajeId, req.userId!))) {
+      return res.status(403).json({ error: "No sos miembro de este viaje" });
+    }
+
     await prisma.tarea.delete({ where: { id: Number(id) } });
     res.json({ message: "Tarea eliminada correctamente" });
   } catch (error) {

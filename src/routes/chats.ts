@@ -5,10 +5,22 @@
 // se crea el vínculo directamente — sin un paso de aceptar/rechazar.
 import { PrismaClient } from "@prisma/client";
 import { Router } from "express";
+import rateLimit from "express-rate-limit";
 import validator from "validator";
+import { AuthRequest, requireAuth } from "../middleware/auth";
 
 const router = Router();
 const prisma = new PrismaClient();
+
+router.use(requireAuth);
+
+const invitarLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 10, // Máximo 10 invitaciones por IP
+  message: "Demasiados intentos. Inténtalo de nuevo en 15 minutos.",
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // GET /chats/usuario/:userId -> lista de chats del usuario, con datos del
 // otro participante y una preview del último mensaje.
@@ -63,11 +75,12 @@ router.get("/usuario/:userId", async (req, res) => {
 
 // POST /chats/invitar -> body { currentUserId, email }
 // Busca al usuario por email e inicia (o reutiliza) el chat con él.
-router.post("/invitar", async (req, res) => {
-  const { currentUserId, email } = req.body;
+router.post("/invitar", invitarLimiter, async (req: AuthRequest, res) => {
+  const { email } = req.body;
+  const meId = req.userId!;
 
-  if (!currentUserId || !email) {
-    return res.status(400).json({ error: "Faltan currentUserId o email" });
+  if (!email) {
+    return res.status(400).json({ error: "Falta email" });
   }
 
   const normalizedEmail = String(email).trim().toLowerCase();
@@ -79,7 +92,6 @@ router.post("/invitar", async (req, res) => {
     const otro = await prisma.user.findUnique({ where: { email: normalizedEmail } });
     if (!otro) return res.status(404).json({ error: "Usuario no encontrado" });
 
-    const meId = Number(currentUserId);
     if (otro.id === meId) {
       return res.status(400).json({ error: "No podés iniciar un chat con vos mismo" });
     }
@@ -146,11 +158,17 @@ router.post("/:chatId/leido", async (req, res) => {
 });
 
 // GET /chats/:chatId/mensajes -> historial de mensajes de un chat
-router.get("/:chatId/mensajes", async (req, res) => {
+router.get("/:chatId/mensajes", async (req: AuthRequest, res) => {
   const chatId = Number(req.params.chatId);
   if (Number.isNaN(chatId)) return res.status(400).json({ error: "chatId inválido" });
 
   try {
+    const chat = await prisma.chat.findUnique({ where: { id: chatId }, select: { usuarioAId: true, usuarioBId: true } });
+    if (!chat) return res.status(404).json({ error: "Chat no encontrado" });
+    if (chat.usuarioAId !== req.userId && chat.usuarioBId !== req.userId) {
+      return res.status(403).json({ error: "No sos participante de este chat" });
+    }
+
     const mensajes = await prisma.mensajeChatPrivado.findMany({
       where: { chatId },
       orderBy: { enviadoEn: "asc" },
@@ -170,21 +188,21 @@ router.get("/:chatId/mensajes", async (req, res) => {
   }
 });
 
-// POST /chats/:chatId/mensajes -> body { usuarioId, contenido }
-router.post("/:chatId/mensajes", async (req, res) => {
+// POST /chats/:chatId/mensajes -> body { contenido }
+router.post("/:chatId/mensajes", async (req: AuthRequest, res) => {
   const chatId = Number(req.params.chatId);
-  const { usuarioId, contenido } = req.body;
+  const { contenido } = req.body;
+  const uid = req.userId!;
 
   if (Number.isNaN(chatId)) return res.status(400).json({ error: "chatId inválido" });
-  if (!usuarioId || !contenido || !String(contenido).trim()) {
-    return res.status(400).json({ error: "Faltan usuarioId o contenido" });
+  if (!contenido || !String(contenido).trim()) {
+    return res.status(400).json({ error: "Falta contenido" });
   }
 
   try {
     const chat = await prisma.chat.findUnique({ where: { id: chatId } });
     if (!chat) return res.status(404).json({ error: "Chat no encontrado" });
 
-    const uid = Number(usuarioId);
     if (chat.usuarioAId !== uid && chat.usuarioBId !== uid) {
       return res.status(403).json({ error: "No sos participante de este chat" });
     }
