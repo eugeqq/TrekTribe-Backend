@@ -35,6 +35,7 @@ Necesitás **Node.js 18+** y **npm**. La base de datos es SQLite, no requiere in
    CLOUDINARY_API_KEY=tu_api_key
    CLOUDINARY_API_SECRET=tu_api_secret
    ```
+   (Comando para crear secret:node -e "console.log(require('crypto').randomBytes(64).toString('hex'))")
 
 3. **Crear la base de datos y aplicar las migraciones**
    ```bash
